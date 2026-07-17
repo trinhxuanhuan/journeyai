@@ -1,0 +1,26 @@
+spring:
+  application:
+    name: auth-service
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/auth_service_db}
+    username: ${SPRING_DATASOURCE_USERNAME:journeyai}
+    password: ${SPRING_DATASOURCE_PASSWORD:journeyai_dev_password}
+  jpa:
+    hibernate:
+      # Sprint 0: validate schema thủ công qua migration ở Sprint 1 (Flyway/Liquibase).
+      # "update" chỉ dùng tạm để xác nhận kết nối DB — sẽ đổi sang "validate"
+      # ngay khi thêm Flyway ở Sprint 1 (tránh rủi ro tự động đổi schema production).
+      ddl-auto: update
+    show-sql: false
+
+server:
+  port: 8080
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: never

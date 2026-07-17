@@ -1,0 +1,22 @@
+# Secrets
+.env
+
+# Java / Maven
+target/
+*.class
+.mvn/
+!.mvn/wrapper/maven-wrapper.jar
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# IDE
+.idea/
+*.iml
+.vscode/
+
+# OS
+.DS_Store
