@@ -43,6 +43,11 @@
             <scope>runtime</scope>
         </dependency>
 
+        <dependency>
+            <groupId>org.springframework.kafka</groupId>
+            <artifactId>spring-kafka</artifactId>
+        </dependency>
+
         <!-- Security + JWT — chuẩn bị cho US-A01/A02/A03 -->
         <dependency>
             <groupId>org.springframework.boot</groupId>

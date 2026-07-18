@@ -24,6 +24,11 @@ spring:
     redis:
       host: ${REDIS_HOST:localhost}
       port: ${REDIS_PORT:6379}
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
 
 server:
   port: 8080
@@ -43,5 +48,5 @@ app:
     access-token-ttl-seconds: 900
     refresh-token-ttl-days: 30
   email:
-    enabled: ${EMAIL_ENABLED:false}   # false = log ra console (dev) — đổi true khi có SMTP thật
+    enabled: ${EMAIL_ENABLED:false}
     from-address: ${SMTP_FROM:noreply@vietkhampha.com}
