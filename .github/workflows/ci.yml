@@ -49,3 +49,18 @@ jobs:
           else
             echo "Chưa có test nào — bỏ qua (sẽ thêm ở Sprint sau)"
           fi
+  build-api-gateway:
+    name: Build & Test api-gateway (Java)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: "17"
+          distribution: "temurin"
+          cache: maven
+
+      - name: Build & test api-gateway
+        run: mvn -f api-gateway/pom.xml clean verify
