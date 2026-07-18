@@ -1,10 +1,6 @@
 package com.vietkhampha.authservice.service;
 
-import com.vietkhampha.authservice.dto.AuthTokenResponse;
-import com.vietkhampha.authservice.dto.LoginRequest;
-import com.vietkhampha.authservice.dto.RegisterRequest;
-import com.vietkhampha.authservice.dto.RegisterResponse;
-import com.vietkhampha.authservice.dto.VerifyOtpRequest;
+import com.vietkhampha.authservice.dto.*;
 import com.vietkhampha.authservice.entity.OtpVerification;
 import com.vietkhampha.authservice.entity.RefreshToken;
 import com.vietkhampha.authservice.entity.User;
@@ -46,6 +42,7 @@ public class AuthService {
     private final JwtService jwtService;
     private final StringRedisTemplate redisTemplate;
     private final SecureRandom secureRandom = new SecureRandom();
+    private final TokenRevocationService tokenRevocationService;
 
     public AuthService(
             UserRepository userRepository,
@@ -54,7 +51,8 @@ public class AuthService {
             PasswordEncoder passwordEncoder,
             EmailService emailService,
             JwtService jwtService,
-            StringRedisTemplate redisTemplate
+            StringRedisTemplate redisTemplate,
+            TokenRevocationService tokenRevocationService
     ) {
         this.userRepository = userRepository;
         this.otpVerificationRepository = otpVerificationRepository;
@@ -63,6 +61,7 @@ public class AuthService {
         this.emailService = emailService;
         this.jwtService = jwtService;
         this.redisTemplate = redisTemplate;
+        this.tokenRevocationService = tokenRevocationService;
     }
 
     @Transactional
@@ -184,7 +183,7 @@ public class AuthService {
 
         RefreshToken refreshToken = new RefreshToken(
                 user.getId(),
-                passwordEncoder.encode(refreshTokenValue),
+                jwtService.hashRefreshToken(refreshTokenValue),
                 Instant.now().plus(REFRESH_TOKEN_TTL_DAYS, ChronoUnit.DAYS)
         );
         refreshTokenRepository.save(refreshToken);
@@ -208,5 +207,64 @@ public class AuthService {
     private String generateOtpCode() {
         int code = secureRandom.nextInt(1_000_000);
         return String.format("%0" + OTP_LENGTH + "d", code);
+    }
+    @Transactional
+    public AuthTokenResponse refresh(RefreshTokenRequest request) {
+        String incomingHash = jwtService.hashRefreshToken(request.getRefreshToken());
+
+        RefreshToken storedToken = refreshTokenRepository.findByTokenHash(incomingHash)
+                .orElseThrow(() -> new BusinessException(ErrorCode.REFRESH_TOKEN_INVALID));
+
+        // Chuẩn RFC 6819 — Reuse Detection: token đã bị revoke mà vẫn được dùng
+        // lại là dấu hiệu bị đánh cắp -> thu hồi TOÀN BỘ token của user, không chỉ
+        // từ chối request này. Bảo vệ chủ tài khoản thật kể cả khi không hay biết.
+        if (storedToken.isRevoked()) {
+            tokenRevocationService.revokeAllTokensForUser(storedToken.getUserId());
+            throw new BusinessException(ErrorCode.REFRESH_TOKEN_INVALID);
+        }
+
+        if (Instant.now().isAfter(storedToken.getExpiresAt())) {
+            throw new BusinessException(ErrorCode.REFRESH_TOKEN_EXPIRED);
+        }
+
+        User user = userRepository.findById(storedToken.getUserId())
+                .orElseThrow(() -> new NoSuchElementException("User khong ton tai"));
+
+        // Rotation: thu hồi token cũ trước khi cấp token mới — không có khoảng hở
+        // nào mà cả 2 token cùng hợp lệ.
+        storedToken.revoke();
+        refreshTokenRepository.save(storedToken);
+
+        return issueTokens(user);
+    }
+
+    @Transactional
+    public void logout(String refreshTokenValue, String accessTokenValue) {
+        String hash = jwtService.hashRefreshToken(refreshTokenValue);
+        refreshTokenRepository.findByTokenHash(hash).ifPresent(token -> {
+            token.revoke();
+            refreshTokenRepository.save(token);
+        });
+
+        // Access token còn hiệu lực tối đa 15 phút (accessTokenTtlSeconds) —
+        // blacklist chỉ cần tồn tại đúng khoảng thời gian đó, tự hết hạn theo TTL,
+        // không cần dọn dẹp thủ công (UC-A03: "đưa access token vào blacklist").
+        redisTemplate.opsForValue().set(
+                accessTokenBlacklistKey(accessTokenValue),
+                "1",
+                Duration.ofSeconds(jwtService.getAccessTokenTtlSeconds())
+        );
+    }
+
+    @Transactional
+    public void logoutAll(java.util.UUID userId) {
+        refreshTokenRepository.revokeAllByUserId(userId);
+        // Không thể blacklist từng access token đang tồn tại ở các thiết bị khác
+        // (hệ thống không lưu vết access token đã phát hành) — chấp nhận được vì
+        // access token hết hạn tự nhiên sau tối đa 15 phút (ARCHITECTURE.md §6.1).
+    }
+
+    private String accessTokenBlacklistKey(String accessToken) {
+        return "token:blacklist:" + jwtService.hashRefreshToken(accessToken); // tái dùng SHA-256, tránh lưu token gốc làm key
     }
 }
