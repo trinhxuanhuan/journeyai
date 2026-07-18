@@ -1,7 +1,9 @@
 package com.vietkhampha.authservice.controller;
 
+import com.vietkhampha.authservice.dto.AuthTokenResponse;
 import com.vietkhampha.authservice.dto.RegisterRequest;
 import com.vietkhampha.authservice.dto.RegisterResponse;
+import com.vietkhampha.authservice.dto.VerifyOtpRequest;
 import com.vietkhampha.authservice.service.AuthService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
@@ -25,6 +27,12 @@ public class AuthController {
     public ResponseEntity<RegisterResponse> register(@Valid @RequestBody RegisterRequest request) {
         RegisterResponse response = authService.register(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    }
+
+    @PostMapping("/verify-otp")
+    public ResponseEntity<AuthTokenResponse> verifyOtp(@Valid @RequestBody VerifyOtpRequest request) {
+        AuthTokenResponse response = authService.verifyOtp(request);
+        return ResponseEntity.ok(response); // 200 — đúng API_CONTRACT.md §2
     }
 
 }
