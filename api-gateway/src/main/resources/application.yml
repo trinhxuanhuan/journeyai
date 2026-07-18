@@ -1,0 +1,34 @@
+spring:
+  application:
+    name: api-gateway
+  cloud:
+    gateway:
+      routes:
+        # Route mọi request /v1/auth/** sang auth-service qua Docker DNS.
+        # Tên "auth-service" khớp đúng container_name/service name trong
+        # docker-compose.yml — Docker DNS tự resolve, không cần hardcode IP.
+        - id: auth-service
+          uri: http://auth-service:8080
+          predicates:
+            - Path=/v1/auth/**
+
+        # Route demo để test cơ chế chặn quyền Admin (T-A07-1) — tạm trỏ về
+        # auth-service vì chưa có Admin Service riêng, sẽ đổi khi có service
+        # thật cần quyền Admin (T-H01-1, Sprint 9-10).
+        - id: auth-service-admin-demo
+          uri: http://auth-service:8080
+          predicates:
+            - Path=/v1/admin/**
+
+server:
+  port: 8080
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
+app:
+  jwt:
+    secret: ${JWT_SIGNING_SECRET:dev_only_change_me}

@@ -119,6 +119,18 @@ services:
       REDIS_PORT: 6379
     ports:
       - "8081:8080"
+  api-gateway:
+    build:
+      context: .
+      dockerfile: api-gateway/Dockerfile
+    container_name: jai-api-gateway
+    restart: unless-stopped
+    depends_on:
+      - auth-service
+    environment:
+      JWT_SIGNING_SECRET: ${JWT_SIGNING_SECRET:-dev_only_change_me}
+    ports:
+      - "8090:8080"
 
   ai-service:
     build:
