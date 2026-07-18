@@ -7,7 +7,12 @@ public enum ErrorCode {
     EMAIL_ALREADY_EXISTS(HttpStatus.CONFLICT, "Email da duoc su dung"),
     OTP_INVALID(HttpStatus.BAD_REQUEST, "Ma OTP khong dung"),
     OTP_EXPIRED(HttpStatus.CONFLICT, "Ma OTP da het han"),
-    OTP_ATTEMPTS_EXCEEDED(HttpStatus.TOO_MANY_REQUESTS, "Da nhap sai OTP qua 5 lan, vui long thu lai sau 15 phut");
+    OTP_ATTEMPTS_EXCEEDED(HttpStatus.TOO_MANY_REQUESTS, "Da nhap sai OTP qua 5 lan, vui long thu lai sau 15 phut"),
+    INVALID_CREDENTIALS(HttpStatus.UNAUTHORIZED, "Email hoac mat khau khong dung"),
+    ACCOUNT_LOCKED(HttpStatus.FORBIDDEN, "Tai khoan bi khoa tam 15 phut do dang nhap sai qua nhieu lan"),
+    ACCOUNT_SUSPENDED(HttpStatus.FORBIDDEN, "Tai khoan da bi khoa boi quan tri vien"),
+    ACCOUNT_UNVERIFIED(HttpStatus.FORBIDDEN, "Tai khoan chua xac thuc OTP");
+
 
     private final HttpStatus httpStatus;
     private final String defaultMessage;

@@ -1,6 +1,7 @@
 package com.vietkhampha.authservice.controller;
 
 import com.vietkhampha.authservice.dto.AuthTokenResponse;
+import com.vietkhampha.authservice.dto.LoginRequest;
 import com.vietkhampha.authservice.dto.RegisterRequest;
 import com.vietkhampha.authservice.dto.RegisterResponse;
 import com.vietkhampha.authservice.dto.VerifyOtpRequest;
@@ -32,7 +33,13 @@ public class AuthController {
     @PostMapping("/verify-otp")
     public ResponseEntity<AuthTokenResponse> verifyOtp(@Valid @RequestBody VerifyOtpRequest request) {
         AuthTokenResponse response = authService.verifyOtp(request);
-        return ResponseEntity.ok(response); // 200 — đúng API_CONTRACT.md §2
+        return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/login")
+    public ResponseEntity<AuthTokenResponse> login(@Valid @RequestBody LoginRequest request) {
+        AuthTokenResponse response = authService.login(request);
+        return ResponseEntity.ok(response); // 200 — API_CONTRACT.md §2
     }
 
 }
