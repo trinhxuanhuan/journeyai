@@ -11,7 +11,9 @@ public enum ErrorCode {
     INVALID_CREDENTIALS(HttpStatus.UNAUTHORIZED, "Email hoac mat khau khong dung"),
     ACCOUNT_LOCKED(HttpStatus.FORBIDDEN, "Tai khoan bi khoa tam 15 phut do dang nhap sai qua nhieu lan"),
     ACCOUNT_SUSPENDED(HttpStatus.FORBIDDEN, "Tai khoan da bi khoa boi quan tri vien"),
-    ACCOUNT_UNVERIFIED(HttpStatus.FORBIDDEN, "Tai khoan chua xac thuc OTP");
+    ACCOUNT_UNVERIFIED(HttpStatus.FORBIDDEN, "Tai khoan chua xac thuc OTP"),
+    REFRESH_TOKEN_INVALID(HttpStatus.UNAUTHORIZED, "Refresh token khong hop le"),
+    REFRESH_TOKEN_EXPIRED(HttpStatus.UNAUTHORIZED, "Refresh token da het han, vui long dang nhap lai");
 
 
     private final HttpStatus httpStatus;

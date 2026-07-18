@@ -34,6 +34,9 @@ public class RefreshToken {
         this.tokenHash = tokenHash;
         this.expiresAt = expiresAt;
     }
+    public void revoke() {
+        this.revoked = true;
+    }
 
     public UUID getId() { return id; }
     public UUID getUserId() { return userId; }
