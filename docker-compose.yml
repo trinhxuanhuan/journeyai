@@ -112,6 +112,7 @@ services:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/auth_service_db
       SPRING_DATASOURCE_USERNAME: journeyai
       SPRING_DATASOURCE_PASSWORD: journeyai_dev_password
+      JWT_SIGNING_SECRET: ${JWT_SIGNING_SECRET:-dev_only_change_me}
     ports:
       - "8081:8080"
 
