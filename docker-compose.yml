@@ -147,8 +147,11 @@ services:
     depends_on:
       mongodb:
         condition: service_healthy
+      kafka:
+        condition: service_healthy
     environment:
       MONGO_URI: mongodb://journeyai:journeyai_dev_password@mongodb:27017/tour_service_db?authSource=admin
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
     ports:
       - "8083:8080"
   api-gateway:
