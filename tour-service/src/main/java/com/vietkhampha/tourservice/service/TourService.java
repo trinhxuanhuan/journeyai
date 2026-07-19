@@ -67,6 +67,13 @@ public class TourService {
 
         return TourResponse.from(saved);
     }
+    public TourResponse getPublicTourById(String tourId) {
+        Tour tour = findTourOrThrow(tourId);
+        if (tour.getStatus() == Tour.Status.INACTIVE) {
+            throw new BusinessException(ErrorCode.TOUR_NOT_FOUND);
+        }
+        return TourResponse.from(tour);
+    }
 
     public void deactivateTour(String tourId) {
         Tour tour = findTourOrThrow(tourId);

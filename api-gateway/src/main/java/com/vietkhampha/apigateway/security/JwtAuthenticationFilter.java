@@ -19,7 +19,6 @@ public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
 
     private static final AntPathMatcher PATH_MATCHER = new AntPathMatcher();
 
-    // Route không cần JWT — khớp đúng cột "Public" ở API_CONTRACT.md §2
     private static final List<String> PUBLIC_PATHS = List.of(
             "/v1/auth/register",
             "/v1/auth/verify-otp",
@@ -27,6 +26,8 @@ public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
             "/v1/auth/login",
             "/v1/auth/refresh",
             "/v1/auth/google/**",
+            "/v1/tours",
+            "/v1/tours/**",
             "/actuator/**"
     );
 
