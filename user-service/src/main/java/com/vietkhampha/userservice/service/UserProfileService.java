@@ -6,6 +6,8 @@ import com.vietkhampha.userservice.dto.UpdateProfileRequest;
 import com.vietkhampha.userservice.entity.UserPreferenceTag;
 import com.vietkhampha.userservice.entity.UserProfile;
 import com.vietkhampha.userservice.event.UserEventPublisher;
+import com.vietkhampha.userservice.exception.BusinessException;
+import com.vietkhampha.userservice.exception.ErrorCode;
 import com.vietkhampha.userservice.repository.UserProfileRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -60,7 +62,7 @@ public class UserProfileService {
 
     private UserProfile findProfileOrThrow(UUID authUserId) {
         return userProfileRepository.findByAuthUserId(authUserId)
-                .orElseThrow(() -> new NoSuchElementException("UserProfile khong ton tai cho authUserId: " + authUserId));
+                .orElseThrow(() -> new BusinessException(ErrorCode.PROFILE_NOT_FOUND));
     }
 
     private ProfileResponse toResponse(UserProfile profile) {
