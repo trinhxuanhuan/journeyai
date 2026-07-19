@@ -25,6 +25,11 @@ spring:
           predicates:
             - Path=/v1/users/**
 
+        - id: tour-service
+          uri: http://tour-service:8080
+          predicates:
+            - Path=/v1/tours/**
+
 server:
   port: 8080
 
