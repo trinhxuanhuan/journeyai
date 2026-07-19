@@ -20,6 +20,11 @@ spring:
           predicates:
             - Path=/v1/admin/**
 
+        - id: user-service
+          uri: http://user-service:8080
+          predicates:
+            - Path=/v1/users/**
+
 server:
   port: 8080
 

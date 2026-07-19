@@ -43,6 +43,7 @@ public class AuthService {
     private final StringRedisTemplate redisTemplate;
     private final SecureRandom secureRandom = new SecureRandom();
     private final TokenRevocationService tokenRevocationService;
+    private final com.vietkhampha.authservice.event.AuthEventPublisher authEventPublisher;
 
     public AuthService(
             UserRepository userRepository,
@@ -52,7 +53,8 @@ public class AuthService {
             EmailService emailService,
             JwtService jwtService,
             StringRedisTemplate redisTemplate,
-            TokenRevocationService tokenRevocationService
+            TokenRevocationService tokenRevocationService,
+            com.vietkhampha.authservice.event.AuthEventPublisher authEventPublisher
     ) {
         this.userRepository = userRepository;
         this.otpVerificationRepository = otpVerificationRepository;
@@ -62,6 +64,7 @@ public class AuthService {
         this.jwtService = jwtService;
         this.redisTemplate = redisTemplate;
         this.tokenRevocationService = tokenRevocationService;
+        this.authEventPublisher = authEventPublisher;
     }
 
     @Transactional
@@ -111,6 +114,7 @@ public class AuthService {
                 .orElseThrow(() -> new NoSuchElementException("User khong ton tai"));
         user.setStatus(User.Status.ACTIVE);
         userRepository.save(user);
+        authEventPublisher.publishUserRegistered(user.getId(), user.getEmail(), user.getFullName());
 
         return issueTokens(user);
     }

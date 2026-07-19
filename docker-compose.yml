@@ -110,6 +110,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      kafka:
+        condition: service_healthy
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/auth_service_db
       SPRING_DATASOURCE_USERNAME: journeyai
@@ -117,8 +119,27 @@ services:
       JWT_SIGNING_SECRET: ${JWT_SIGNING_SECRET:-dev_only_change_me}
       REDIS_HOST: redis
       REDIS_PORT: 6379
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
     ports:
       - "8081:8080"
+  user-service:
+    build:
+      context: .
+      dockerfile: user-service/Dockerfile
+    container_name: jai-user-service
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/user_service_db
+      SPRING_DATASOURCE_USERNAME: journeyai
+      SPRING_DATASOURCE_PASSWORD: journeyai_dev_password
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+    ports:
+      - "8082:8080"
   api-gateway:
     build:
       context: .

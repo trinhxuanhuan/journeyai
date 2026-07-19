@@ -10,29 +10,20 @@
         <version>0.1.0</version>
     </parent>
 
-    <artifactId>auth-service</artifactId>
+    <artifactId>user-service</artifactId>
     <packaging>jar</packaging>
 
     <dependencies>
-        <!-- Web + validation -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-web</artifactId>
         </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-mail</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-validation</artifactId>
         </dependency>
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-data-redis</artifactId>
-        </dependency>
 
-        <!-- PostgreSQL — ERD.md §2 (Auth Service) -->
+        <!-- PostgreSQL — ERD.md §3 (User Service) -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-data-jpa</artifactId>
@@ -43,41 +34,17 @@
             <scope>runtime</scope>
         </dependency>
 
+        <!-- Kafka consumer — nhận "user.registered" từ Auth Service (EVENT_CATALOG.md §3.1) -->
         <dependency>
             <groupId>org.springframework.kafka</groupId>
             <artifactId>spring-kafka</artifactId>
         </dependency>
 
-        <!-- Security + JWT — chuẩn bị cho US-A01/A02/A03 -->
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-security</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>io.jsonwebtoken</groupId>
-            <artifactId>jjwt-api</artifactId>
-            <version>0.12.6</version>
-        </dependency>
-        <dependency>
-            <groupId>io.jsonwebtoken</groupId>
-            <artifactId>jjwt-impl</artifactId>
-            <version>0.12.6</version>
-            <scope>runtime</scope>
-        </dependency>
-        <dependency>
-            <groupId>io.jsonwebtoken</groupId>
-            <artifactId>jjwt-jackson</artifactId>
-            <version>0.12.6</version>
-            <scope>runtime</scope>
-        </dependency>
-
-        <!-- Actuator — health check cho Docker Compose healthcheck / Gateway -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-actuator</artifactId>
         </dependency>
 
-        <!-- Test -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-test</artifactId>
@@ -86,7 +53,7 @@
     </dependencies>
 
     <build>
-        <finalName>auth-service</finalName>
+        <finalName>user-service</finalName>
         <plugins>
             <plugin>
                 <groupId>org.springframework.boot</groupId>
