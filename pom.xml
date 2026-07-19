@@ -12,7 +12,7 @@
     <modules>
         <module>auth-service</module>
         <module>api-gateway</module>
-
+        <module>user-service</module>
     </modules>
 
     <properties>
