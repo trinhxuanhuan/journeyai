@@ -63,6 +63,24 @@ jobs:
 
       - name: Build Docker image (tour-service)
         run: docker build -t journeyai/tour-service:${{ github.sha }} -f tour-service/Dockerfile .
+  build-booking-service:
+    name: Build & Test booking-service (Java)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: "17"
+          distribution: "temurin"
+          cache: maven
+
+      - name: Build & test booking-service
+        run: mvn -f booking-service/pom.xml clean verify
+
+      - name: Build Docker image (booking-service)
+        run: docker build -t journeyai/booking-service:${{ github.sha }} -f booking-service/Dockerfile .
 
   build-api-gateway:
     name: Build & Test api-gateway (Java)
