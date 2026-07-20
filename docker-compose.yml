@@ -173,6 +173,7 @@ services:
       SPRING_DATASOURCE_USERNAME: journeyai
       SPRING_DATASOURCE_PASSWORD: journeyai_dev_password
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      TOUR_SERVICE_BASE_URL: http://tour-service:8080
     ports:
       - "8084:8080"
   api-gateway:

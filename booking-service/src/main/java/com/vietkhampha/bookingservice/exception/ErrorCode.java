@@ -5,6 +5,8 @@ import org.springframework.http.HttpStatus;
 public enum ErrorCode {
     SLOT_NOT_FOUND(HttpStatus.NOT_FOUND, "Khong tim thay ngay khoi hanh"),
     SLOT_ALREADY_EXISTS(HttpStatus.CONFLICT, "Ngay khoi hanh nay da ton tai cho tour"),
+    TOUR_SLOT_NOT_FOUND(HttpStatus.NOT_FOUND, "Khong tim thay ngay khoi hanh cho tour nay"),
+    SLOT_UNAVAILABLE(HttpStatus.CONFLICT, "Rat tiec, khong du cho trong cho so luong yeu cau"),
     VALIDATION_FAILED(HttpStatus.BAD_REQUEST, "Du lieu khong hop le");
 
     private final HttpStatus httpStatus;
