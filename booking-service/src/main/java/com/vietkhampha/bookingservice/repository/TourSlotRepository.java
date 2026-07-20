@@ -19,6 +19,9 @@ public interface TourSlotRepository extends JpaRepository<TourSlot, UUID> {
             @Param("tourId") String tourId,
             @Param("departureDate") LocalDate departureDate
     );
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT s FROM TourSlot s WHERE s.id = :id")
+    Optional<TourSlot> findByIdForUpdate(@Param("id") java.util.UUID id);
 
     Optional<TourSlot> findByTourIdAndDepartureDate(String tourId, LocalDate departureDate);
 }
