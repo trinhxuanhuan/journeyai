@@ -14,6 +14,11 @@ spring:
           predicates:
             - Path=/v1/admin/tours/**
 
+        - id: booking-service-admin
+          uri: http://booking-service:8080
+          predicates:
+            - Path=/v1/admin/bookings/**
+
         - id: auth-service-admin-demo
           uri: http://auth-service:8080
           predicates:
@@ -28,6 +33,11 @@ spring:
           uri: http://tour-service:8080
           predicates:
             - Path=/v1/tours/**
+
+        - id: booking-service
+          uri: http://booking-service:8080
+          predicates:
+            - Path=/v1/bookings/**
 
 server:
   port: 8080
