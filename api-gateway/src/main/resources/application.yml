@@ -9,6 +9,11 @@ spring:
           predicates:
             - Path=/v1/auth/**
 
+        - id: booking-service-slots
+          uri: http://booking-service:8080
+          predicates:
+            - Path=/v1/admin/tours/*/slots/**
+
         - id: tour-service-admin
           uri: http://tour-service:8080
           predicates:
