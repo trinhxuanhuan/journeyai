@@ -23,6 +23,9 @@ jobs:
       - name: Build & test auth-service
         run: mvn -f auth-service/pom.xml clean verify
 
+      - name: Build Docker image (auth-service)
+        run: docker build -t journeyai/auth-service:${{ github.sha }} -f auth-service/Dockerfile .
+
   build-user-service:
     name: Build & Test user-service (Java)
     runs-on: ubuntu-latest
@@ -39,6 +42,9 @@ jobs:
       - name: Build & test user-service
         run: mvn -f user-service/pom.xml clean verify
 
+      - name: Build Docker image (user-service)
+        run: docker build -t journeyai/user-service:${{ github.sha }} -f user-service/Dockerfile .
+
   build-tour-service:
     name: Build & Test tour-service (Java)
     runs-on: ubuntu-latest
@@ -54,6 +60,28 @@ jobs:
 
       - name: Build & test tour-service
         run: mvn -f tour-service/pom.xml clean verify
+
+      - name: Build Docker image (tour-service)
+        run: docker build -t journeyai/tour-service:${{ github.sha }} -f tour-service/Dockerfile .
+
+  build-api-gateway:
+    name: Build & Test api-gateway (Java)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: "17"
+          distribution: "temurin"
+          cache: maven
+
+      - name: Build & test api-gateway
+        run: mvn -f api-gateway/pom.xml clean verify
+
+      - name: Build Docker image (api-gateway)
+        run: docker build -t journeyai/api-gateway:${{ github.sha }} -f api-gateway/Dockerfile .
 
   build-ai-service:
     name: Build & Test ai-service (Python)
@@ -81,18 +109,7 @@ jobs:
           else
             echo "Chưa có test nào — bỏ qua (sẽ thêm ở Sprint sau)"
           fi
-  build-api-gateway:
-    name: Build & Test api-gateway (Java)
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
 
-      - name: Set up JDK 17
-        uses: actions/setup-java@v4
-        with:
-          java-version: "17"
-          distribution: "temurin"
-          cache: maven
-
-      - name: Build & test api-gateway
-        run: mvn -f api-gateway/pom.xml clean verify
+      - name: Build Docker image (ai-service)
+        working-directory: .
+        run: docker build -t journeyai/ai-service:${{ github.sha }} -f ai-service/Dockerfile ai-service
