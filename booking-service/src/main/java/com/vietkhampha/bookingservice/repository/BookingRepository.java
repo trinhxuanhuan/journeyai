@@ -3,8 +3,10 @@ package com.vietkhampha.bookingservice.repository;
 import com.vietkhampha.bookingservice.entity.Booking;
 import org.springframework.data.jpa.repository.JpaRepository;
 
+import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
 
 public interface BookingRepository extends JpaRepository<Booking, UUID> {
-
+    List<Booking> findByStatusAndHoldExpiresAtBefore(Booking.Status status, Instant now);
 }

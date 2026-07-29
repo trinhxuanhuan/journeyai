@@ -7,6 +7,7 @@ import org.springframework.messaging.support.MessageBuilder;
 import org.springframework.statemachine.StateMachine;
 import org.springframework.statemachine.config.StateMachineFactory;
 import org.springframework.stereotype.Service;
+
 @Service
 public class BookingStateMachineService {
 
@@ -28,7 +29,6 @@ public class BookingStateMachineService {
         boolean accepted = sm.sendEvent(MessageBuilder.withPayload(event).build());
 
         if (!accepted) {
-
             throw new BusinessException(ErrorCode.INVALID_STATE_TRANSITION);
         }
 
