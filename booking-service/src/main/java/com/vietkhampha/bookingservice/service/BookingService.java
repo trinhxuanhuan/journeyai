@@ -12,8 +12,10 @@ import com.vietkhampha.bookingservice.repository.BookingRepository;
 import com.vietkhampha.bookingservice.repository.IdempotencyKeyRepository;
 import com.vietkhampha.bookingservice.repository.OutboxEventRepository;
 import com.vietkhampha.bookingservice.repository.TourSlotRepository;
+import com.vietkhampha.bookingservice.statemachine.BookingEvent;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import com.vietkhampha.bookingservice.statemachine.BookingStateMachineService;
 
 import java.math.BigDecimal;
 import java.util.Map;
@@ -29,16 +31,19 @@ public class BookingService {
     private final OutboxEventRepository outboxEventRepository;
     private final TourServiceClient tourServiceClient;
     private final ObjectMapper objectMapper;
+    private final BookingStateMachineService stateMachineService;
 
     public BookingService(BookingRepository bookingRepository, TourSlotRepository tourSlotRepository,
                           IdempotencyKeyRepository idempotencyKeyRepository, OutboxEventRepository outboxEventRepository,
-                          TourServiceClient tourServiceClient, ObjectMapper objectMapper) {
+                          TourServiceClient tourServiceClient, ObjectMapper objectMapper,
+                          BookingStateMachineService stateMachineService) {
         this.bookingRepository = bookingRepository;
         this.tourSlotRepository = tourSlotRepository;
         this.idempotencyKeyRepository = idempotencyKeyRepository;
         this.outboxEventRepository = outboxEventRepository;
         this.tourServiceClient = tourServiceClient;
         this.objectMapper = objectMapper;
+        this.stateMachineService = stateMachineService;
     }
 
     public record BookingResult(CreateBookingResponse response, boolean isReplay) {}
@@ -101,5 +106,75 @@ public class BookingService {
     private CreateBookingResponse toResponse(Booking booking) {
         return new CreateBookingResponse(booking.getId(), booking.getStatus().name(),
                 booking.getTotalAmount(), booking.getHoldExpiresAt());
+    }
+
+    @Transactional
+    public void expireBooking(UUID bookingId, String reason) {
+        transitionAndReleaseSlot(bookingId, BookingEvent.HOLD_TIMEOUT, reason, "booking.expired");
+    }
+
+    @Transactional
+    public void failBookingPayment(UUID bookingId, String reason) {
+        transitionAndReleaseSlot(bookingId, BookingEvent.PAYMENT_FAILED, reason, "booking.payment_failed");
+    }
+
+    private void transitionAndReleaseSlot(UUID bookingId, BookingEvent event, String reason, String eventType) {
+        Booking booking = bookingRepository.findById(bookingId).orElseThrow();
+
+        if (booking.getStatus() != Booking.Status.PENDING) {
+            return;
+        }
+
+        TourSlot slot = tourSlotRepository.findByIdForUpdate(booking.getTourSlotId())
+                .orElseThrow();
+        slot.release(booking.getParticipantCount());
+        tourSlotRepository.save(slot);
+
+        stateMachineService.transition(booking, event);
+        bookingRepository.save(booking);
+
+        publishBookingTerminatedEvent(booking, eventType, reason);
+    }
+
+    private void publishBookingTerminatedEvent(Booking booking, String eventType, String reason) {
+        try {
+            String payload = objectMapper.writeValueAsString(Map.of(
+                    "bookingId", booking.getId().toString(),
+                    "customerId", booking.getCustomerId().toString(),
+                    "reason", reason,
+                    "refundEligible", false // Chưa có Payment Service thật — mặc định chưa hoàn tiền, sẽ cập nhật khi tích hợp VNPay
+            ));
+            OutboxEvent outboxEvent = new OutboxEvent("BOOKING", booking.getId(), eventType, payload);
+            outboxEventRepository.save(outboxEvent);
+        } catch (Exception e) {
+            throw new IllegalStateException("Loi serialize outbox event", e);
+        }
+    }
+    @Transactional
+    public void confirmBookingPayment(UUID bookingId) {
+        Booking booking = bookingRepository.findById(bookingId).orElseThrow();
+
+        if (booking.getStatus() != Booking.Status.PENDING) {
+            return;
+        }
+
+        stateMachineService.transition(booking, BookingEvent.PAYMENT_CONFIRMED);
+        bookingRepository.save(booking);
+
+        publishBookingConfirmedEvent(booking);
+    }
+
+    private void publishBookingConfirmedEvent(Booking booking) {
+        try {
+            String payload = objectMapper.writeValueAsString(Map.of(
+                    "bookingId", booking.getId().toString(),
+                    "customerId", booking.getCustomerId().toString(),
+                    "totalAmount", booking.getTotalAmount()
+            ));
+            OutboxEvent event = new OutboxEvent("BOOKING", booking.getId(), "booking.confirmed", payload);
+            outboxEventRepository.save(event);
+        } catch (Exception e) {
+            throw new IllegalStateException("Loi serialize outbox event", e);
+        }
     }
 }
