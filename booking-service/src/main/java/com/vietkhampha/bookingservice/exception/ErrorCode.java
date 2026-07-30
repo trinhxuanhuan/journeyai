@@ -8,7 +8,9 @@ public enum ErrorCode {
     TOUR_SLOT_NOT_FOUND(HttpStatus.NOT_FOUND, "Khong tim thay ngay khoi hanh cho tour nay"),
     SLOT_UNAVAILABLE(HttpStatus.CONFLICT, "Rat tiec, khong du cho trong cho so luong yeu cau"),
     VALIDATION_FAILED(HttpStatus.BAD_REQUEST, "Du lieu khong hop le"),
-    INVALID_STATE_TRANSITION(HttpStatus.CONFLICT, "Khong the chuyen trang thai booking nhu yeu cau");
+    INVALID_STATE_TRANSITION(HttpStatus.CONFLICT, "Khong the chuyen trang thai booking nhu yeu cau"),
+    BOOKING_NOT_FOUND(HttpStatus.NOT_FOUND, "Khong tim thay booking");
+
 
     private final HttpStatus httpStatus;
     private final String defaultMessage;
