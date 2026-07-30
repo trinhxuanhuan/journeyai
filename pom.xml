@@ -15,6 +15,7 @@
         <module>user-service</module>
         <module>tour-service</module>
         <module>booking-service</module>
+        <module>payment-service</module>
     </modules>
 
     <properties>

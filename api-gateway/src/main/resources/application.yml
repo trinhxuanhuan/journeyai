@@ -24,6 +24,16 @@ spring:
           predicates:
             - Path=/v1/admin/bookings/**
 
+        - id: payment-service-admin
+          uri: http://payment-service:8080
+          predicates:
+            - Path=/v1/admin/payments/**
+
+        - id: payment-service
+          uri: http://payment-service:8080
+          predicates:
+            - Path=/v1/payments/**
+
         - id: auth-service-admin-demo
           uri: http://auth-service:8080
           predicates:

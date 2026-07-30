@@ -1,0 +1,36 @@
+spring:
+  application:
+    name: payment-service
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/payment_service_db}
+    username: ${SPRING_DATASOURCE_USERNAME:journeyai}
+    password: ${SPRING_DATASOURCE_PASSWORD:journeyai_dev_password}
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      properties:
+        spring.json.add.type.headers: false
+
+server:
+  port: 8080
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
+app:
+  vnpay:
+    tmn-code: ${VNPAY_TMN_CODE:sandbox_placeholder}
+    hash-secret: ${VNPAY_HASH_SECRET:sandbox_placeholder}
+    pay-url: https://sandbox.vnpayment.vn/paymentv2/vpcpay.html
+    return-url: ${VNPAY_RETURN_URL:http://localhost:8090/v1/payments/vnpay-return}
+  booking-service:
+    base-url: ${BOOKING_SERVICE_BASE_URL:http://booking-service:8080}
