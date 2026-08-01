@@ -5,7 +5,8 @@ import org.springframework.http.HttpStatus;
 public enum ErrorCode {
     BOOKING_NOT_PENDING(HttpStatus.UNPROCESSABLE_ENTITY, "Booking khong o trang thai cho thanh toan hoac da het han giu cho"),
     PAYMENT_NOT_FOUND(HttpStatus.NOT_FOUND, "Khong tim thay giao dich"),
-    VALIDATION_FAILED(HttpStatus.BAD_REQUEST, "Du lieu khong hop le");
+    VALIDATION_FAILED(HttpStatus.BAD_REQUEST, "Du lieu khong hop le"),
+    WEBHOOK_INVALID_CHECKSUM(HttpStatus.BAD_REQUEST, "Chu ky khong hop le");
 
     private final HttpStatus httpStatus;
     private final String defaultMessage;
