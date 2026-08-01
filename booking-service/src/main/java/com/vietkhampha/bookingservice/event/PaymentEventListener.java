@@ -25,14 +25,11 @@ public class PaymentEventListener {
 
     @SuppressWarnings("unchecked")
     @KafkaListener(topics = "payment-events", groupId = "booking-service-payment-consumer")
-    public void handlePaymentEvent(Map<String, Object> event) throws Exception {
+    public void handlePaymentEvent(Map<String, Object> event) {
         String eventType = (String) event.get("eventType");
 
-        Object rawPayload = event.get("payload");
-        Map<String, Object> payload = (rawPayload instanceof String str)
-                ? objectMapper.readValue(str, Map.class)
-                : (Map<String, Object>) rawPayload;
-
+        @SuppressWarnings("unchecked")
+        Map<String, Object> payload = (Map<String, Object>) event.get("payload");
         UUID bookingId = UUID.fromString((String) payload.get("bookingId"));
 
         switch (eventType) {

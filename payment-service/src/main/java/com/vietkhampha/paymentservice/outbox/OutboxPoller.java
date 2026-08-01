@@ -1,5 +1,6 @@
 package com.vietkhampha.paymentservice.outbox;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.vietkhampha.paymentservice.entity.OutboxEvent;
 import com.vietkhampha.paymentservice.repository.OutboxEventRepository;
 import org.slf4j.Logger;
@@ -10,6 +11,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Map;
 
 @Component
 public class OutboxPoller {
@@ -19,10 +21,13 @@ public class OutboxPoller {
 
     private final OutboxEventRepository outboxEventRepository;
     private final KafkaTemplate<String, Object> kafkaTemplate;
+    private final ObjectMapper objectMapper;
 
-    public OutboxPoller(OutboxEventRepository outboxEventRepository, KafkaTemplate<String, Object> kafkaTemplate) {
+    public OutboxPoller(OutboxEventRepository outboxEventRepository, KafkaTemplate<String, Object> kafkaTemplate,
+                        ObjectMapper objectMapper) {
         this.outboxEventRepository = outboxEventRepository;
         this.kafkaTemplate = kafkaTemplate;
+        this.objectMapper = objectMapper;
     }
 
     @Scheduled(fixedDelay = 2000)
@@ -32,7 +37,11 @@ public class OutboxPoller {
 
         for (OutboxEvent event : pending) {
             try {
-                kafkaTemplate.send(TOPIC, event.getAggregateId().toString(), event).get();
+                Map<String, Object> message = Map.of(
+                        "eventType", event.getEventType(),
+                        "payload", objectMapper.readValue(event.getPayload(), Map.class)
+                );
+                kafkaTemplate.send(TOPIC, event.getAggregateId().toString(), message).get();
                 event.markPublished();
                 outboxEventRepository.save(event);
                 log.info("Da publish outbox event {} (type={})", event.getId(), event.getEventType());
