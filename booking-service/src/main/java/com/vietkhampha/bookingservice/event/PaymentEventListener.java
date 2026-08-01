@@ -1,5 +1,6 @@
 package com.vietkhampha.bookingservice.event;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.vietkhampha.bookingservice.service.BookingService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -8,22 +9,30 @@ import org.springframework.stereotype.Component;
 
 import java.util.Map;
 import java.util.UUID;
+
 @Component
 public class PaymentEventListener {
 
     private static final Logger log = LoggerFactory.getLogger(PaymentEventListener.class);
 
     private final BookingService bookingService;
+    private final ObjectMapper objectMapper;
 
-    public PaymentEventListener(BookingService bookingService) {
+    public PaymentEventListener(BookingService bookingService, ObjectMapper objectMapper) {
         this.bookingService = bookingService;
+        this.objectMapper = objectMapper;
     }
 
     @SuppressWarnings("unchecked")
     @KafkaListener(topics = "payment-events", groupId = "booking-service-payment-consumer")
-    public void handlePaymentEvent(Map<String, Object> event) {
+    public void handlePaymentEvent(Map<String, Object> event) throws Exception {
         String eventType = (String) event.get("eventType");
-        Map<String, Object> payload = (Map<String, Object>) event.get("payload");
+
+        Object rawPayload = event.get("payload");
+        Map<String, Object> payload = (rawPayload instanceof String str)
+                ? objectMapper.readValue(str, Map.class)
+                : (Map<String, Object>) rawPayload;
+
         UUID bookingId = UUID.fromString((String) payload.get("bookingId"));
 
         switch (eventType) {

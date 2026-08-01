@@ -74,4 +74,49 @@ public class PaymentService {
             throw new IllegalStateException("Loi serialize outbox event", e);
         }
     }
+    @Transactional
+    public void confirmPayment(String txnRef) {
+        Payment payment = paymentRepository.findByGatewayTransactionRef(txnRef)
+                .orElseThrow(() -> new BusinessException(ErrorCode.PAYMENT_NOT_FOUND));
+
+        // Idempotent — VNPay có thể gửi IPN trùng (retry nếu server bạn phản
+        // hồi chậm/lỗi mạng). Nếu đã SUCCESS, bỏ qua, không publish lại.
+        if (payment.getStatus() != Payment.Status.INITIATED) {
+            return;
+        }
+
+        payment.markSuccess();
+        paymentRepository.save(payment);
+        publishPaymentEvent(payment, "payment.succeeded");
+    }
+
+    @Transactional
+    public void failPayment(String txnRef) {
+        Payment payment = paymentRepository.findByGatewayTransactionRef(txnRef)
+                .orElseThrow(() -> new BusinessException(ErrorCode.PAYMENT_NOT_FOUND));
+
+        if (payment.getStatus() != Payment.Status.INITIATED) {
+            return;
+        }
+
+        payment.markFailed();
+        paymentRepository.save(payment);
+        publishPaymentEvent(payment, "payment.failed");
+    }
+
+    private void publishPaymentEvent(Payment payment, String eventType) {
+        try {
+            String payload = objectMapper.writeValueAsString(Map.of(
+                    "paymentId", payment.getId().toString(),
+                    "bookingId", payment.getBookingId().toString(),
+                    "gateway", payment.getGateway().name(),
+                    "amount", payment.getAmount(),
+                    "gatewayTransactionRef", payment.getGatewayTransactionRef()
+            ));
+            OutboxEvent event = new OutboxEvent("PAYMENT", payment.getId(), eventType, payload);
+            outboxEventRepository.save(event);
+        } catch (Exception e) {
+            throw new IllegalStateException("Loi serialize outbox event", e);
+        }
+    }
 }

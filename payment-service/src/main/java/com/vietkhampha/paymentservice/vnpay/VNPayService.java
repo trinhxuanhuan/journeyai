@@ -97,4 +97,17 @@ public class VNPayService {
             throw new IllegalStateException("Loi tinh HMAC-SHA512", e);
         }
     }
+    public boolean verifyChecksum(Map<String, String> allParams) {
+        String receivedHash = allParams.get("vnp_SecureHash");
+        if (receivedHash == null) return false;
+
+        Map<String, String> paramsToVerify = new TreeMap<>(allParams);
+        paramsToVerify.remove("vnp_SecureHash");
+        paramsToVerify.remove("vnp_SecureHashType"); // field phụ, không tính vào chữ ký
+
+        String queryString = buildQueryString(paramsToVerify);
+        String calculatedHash = hmacSHA512(hashSecret, queryString);
+
+        return calculatedHash.equalsIgnoreCase(receivedHash);
+    }
 }
