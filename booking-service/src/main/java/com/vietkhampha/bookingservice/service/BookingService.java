@@ -177,4 +177,57 @@ public class BookingService {
             throw new IllegalStateException("Loi serialize outbox event", e);
         }
     }
+    @Transactional
+    public void cancelBooking(UUID bookingId, UUID customerId) {
+        Booking booking = bookingRepository.findById(bookingId).orElseThrow(
+                () -> new BusinessException(ErrorCode.BOOKING_NOT_FOUND));
+
+        if (!booking.getCustomerId().equals(customerId)) {
+            throw new BusinessException(ErrorCode.BOOKING_NOT_FOUND);
+        }
+        if (booking.getStatus() != Booking.Status.CONFIRMED) {
+            throw new BusinessException(ErrorCode.BOOKING_NOT_CANCELLABLE);
+        }
+
+        TourSlot slot = tourSlotRepository.findByIdForUpdate(booking.getTourSlotId()).orElseThrow();
+        long hoursUntilDeparture = java.time.Duration.between(
+                java.time.Instant.now(),
+                slot.getDepartureDate().atStartOfDay(java.time.ZoneId.of("Asia/Ho_Chi_Minh")).toInstant()
+        ).toHours();
+        if (hoursUntilDeparture < 24) {
+            throw new BusinessException(ErrorCode.BOOKING_CANCEL_WINDOW_CLOSED);
+        }
+
+        int refundPercentage = calculateRefundPercentage(hoursUntilDeparture);
+
+        slot.release(booking.getParticipantCount());
+        tourSlotRepository.save(slot);
+
+        stateMachineService.transition(booking, BookingEvent.CUSTOMER_CANCEL);
+        bookingRepository.save(booking);
+
+        publishBookingCancelledEvent(booking, refundPercentage);
+    }
+    private int calculateRefundPercentage(long hoursUntilDeparture) {
+        long daysUntilDeparture = hoursUntilDeparture / 24;
+        if (daysUntilDeparture >= 7) return 100;
+        if (daysUntilDeparture >= 3) return 50;
+        return 0;
+    }
+
+    private void publishBookingCancelledEvent(Booking booking, int refundPercentage) {
+        try {
+            String payload = objectMapper.writeValueAsString(Map.of(
+                    "bookingId", booking.getId().toString(),
+                    "customerId", booking.getCustomerId().toString(),
+                    "reason", "Khach hang chu dong huy",
+                    "refundEligible", refundPercentage > 0,
+                    "refundPercentage", refundPercentage
+            ));
+            OutboxEvent event = new OutboxEvent("BOOKING", booking.getId(), "booking.cancelled", payload);
+            outboxEventRepository.save(event);
+        } catch (Exception e) {
+            throw new IllegalStateException("Loi serialize outbox event", e);
+        }
+    }
 }
