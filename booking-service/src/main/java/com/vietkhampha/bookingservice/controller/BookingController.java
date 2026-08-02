@@ -55,5 +55,14 @@ public class BookingController {
 
         return ResponseEntity.ok(BookingResponse.from(booking));
     }
+    @PostMapping("/{id}/cancel")
+    public ResponseEntity<Void> cancelBooking(
+            @RequestHeader("X-User-Id") String userIdHeader,
+            @PathVariable UUID id
+    ) {
+        UUID customerId = UUID.fromString(userIdHeader);
+        bookingService.cancelBooking(id, customerId);
+        return ResponseEntity.noContent().build();
+    }
 
 }

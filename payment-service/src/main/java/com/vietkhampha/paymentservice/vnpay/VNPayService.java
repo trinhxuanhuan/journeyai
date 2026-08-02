@@ -110,4 +110,52 @@ public class VNPayService {
 
         return calculatedHash.equalsIgnoreCase(receivedHash);
     }
+    public record RefundResult(boolean success, String message, String gatewayRefundRef) {}
+    public RefundResult createRefundRequest(String originalTxnRef, java.math.BigDecimal amount,
+                                            String originalTransactionDate, String ipAddress) {
+        ZonedDateTime now = ZonedDateTime.now(VN_ZONE);
+        String requestId = String.valueOf(System.currentTimeMillis());
+        String createDate = now.format(VNPAY_DATE_FORMAT);
+        String amountStr = amount.multiply(java.math.BigDecimal.valueOf(100)).toBigInteger().toString();
+
+        String hashRawData = String.join("|",
+                requestId, "2.1.0", "refund", tmnCode, "02", originalTxnRef,
+                amountStr, "", originalTransactionDate, "system", createDate, ipAddress,
+                "Hoan tien booking " + originalTxnRef
+        );
+        String secureHash = hmacSHA512(hashSecret, hashRawData);
+
+        Map<String, Object> body = new java.util.LinkedHashMap<>();
+        body.put("vnp_RequestId", requestId);
+        body.put("vnp_Version", "2.1.0");
+        body.put("vnp_Command", "refund");
+        body.put("vnp_TmnCode", tmnCode);
+        body.put("vnp_TransactionType", "02");
+        body.put("vnp_TxnRef", originalTxnRef);
+        body.put("vnp_Amount", amountStr);
+        body.put("vnp_TransactionDate", originalTransactionDate);
+        body.put("vnp_CreateBy", "system");
+        body.put("vnp_CreateDate", createDate);
+        body.put("vnp_IpAddr", ipAddress);
+        body.put("vnp_OrderInfo", "Hoan tien booking " + originalTxnRef);
+        body.put("vnp_SecureHash", secureHash);
+
+        try {
+            org.springframework.web.client.RestClient restClient = org.springframework.web.client.RestClient.create();
+            Map<?, ?> response = restClient.post()
+                    .uri("https://sandbox.vnpayment.vn/merchant_webapi/api/transaction")
+                    .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
+                    .body(body)
+                    .retrieve()
+                    .body(Map.class);
+
+            String responseCode = String.valueOf(response.get("vnp_ResponseCode"));
+            boolean success = "00".equals(responseCode);
+            String refundRef = success ? String.valueOf(response.get("vnp_TransactionNo")) : null;
+
+            return new RefundResult(success, String.valueOf(response.get("vnp_Message")), refundRef);
+        } catch (Exception e) {
+            return new RefundResult(false, "Loi goi VNPay refund API: " + e.getMessage(), null);
+        }
+    }
 }

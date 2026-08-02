@@ -6,15 +6,19 @@ import com.vietkhampha.paymentservice.dto.CreatePaymentRequest;
 import com.vietkhampha.paymentservice.dto.CreatePaymentResponse;
 import com.vietkhampha.paymentservice.entity.OutboxEvent;
 import com.vietkhampha.paymentservice.entity.Payment;
+import com.vietkhampha.paymentservice.entity.Refund;
 import com.vietkhampha.paymentservice.exception.BusinessException;
 import com.vietkhampha.paymentservice.exception.ErrorCode;
 import com.vietkhampha.paymentservice.repository.OutboxEventRepository;
 import com.vietkhampha.paymentservice.repository.PaymentRepository;
+import com.vietkhampha.paymentservice.repository.RefundRepository;
 import com.vietkhampha.paymentservice.vnpay.VNPayService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.util.Map;
+import java.util.UUID;
 
 @Service
 public class PaymentService {
@@ -24,15 +28,17 @@ public class PaymentService {
     private final BookingServiceClient bookingServiceClient;
     private final VNPayService vnPayService;
     private final ObjectMapper objectMapper;
+    private final RefundRepository refundRepository;
 
     public PaymentService(PaymentRepository paymentRepository, OutboxEventRepository outboxEventRepository,
                           BookingServiceClient bookingServiceClient, VNPayService vnPayService,
-                          ObjectMapper objectMapper) {
+                          ObjectMapper objectMapper, RefundRepository refundRepository) {
         this.paymentRepository = paymentRepository;
         this.outboxEventRepository = outboxEventRepository;
         this.bookingServiceClient = bookingServiceClient;
         this.vnPayService = vnPayService;
         this.objectMapper = objectMapper;
+        this.refundRepository = refundRepository;
     }
 
     @Transactional
@@ -74,13 +80,11 @@ public class PaymentService {
             throw new IllegalStateException("Loi serialize outbox event", e);
         }
     }
+
     @Transactional
     public void confirmPayment(String txnRef) {
         Payment payment = paymentRepository.findByGatewayTransactionRef(txnRef)
                 .orElseThrow(() -> new BusinessException(ErrorCode.PAYMENT_NOT_FOUND));
-
-        // Idempotent — VNPay có thể gửi IPN trùng (retry nếu server bạn phản
-        // hồi chậm/lỗi mạng). Nếu đã SUCCESS, bỏ qua, không publish lại.
         if (payment.getStatus() != Payment.Status.INITIATED) {
             return;
         }
@@ -114,6 +118,54 @@ public class PaymentService {
                     "gatewayTransactionRef", payment.getGatewayTransactionRef()
             ));
             OutboxEvent event = new OutboxEvent("PAYMENT", payment.getId(), eventType, payload);
+            outboxEventRepository.save(event);
+        } catch (Exception e) {
+            throw new IllegalStateException("Loi serialize outbox event", e);
+        }
+    }
+
+    @Transactional
+    public void processRefund(UUID bookingId, int refundPercentage, String ipAddress) {
+        Payment payment = paymentRepository.findAll().stream()
+                .filter(p -> p.getBookingId().equals(bookingId) && p.getStatus() == Payment.Status.SUCCESS)
+                .findFirst()
+                .orElseThrow(() -> new BusinessException(ErrorCode.PAYMENT_NOT_FOUND));
+
+        BigDecimal refundAmount = payment.getAmount()
+                .multiply(BigDecimal.valueOf(refundPercentage))
+                .divide(BigDecimal.valueOf(100));
+
+        Refund refund = new Refund(payment.getId(), refundAmount, refundPercentage);
+        Refund savedRefund = refundRepository.save(refund);
+
+        String originalTransactionDate = payment.getCreatedAt()
+                .atZone(java.time.ZoneId.of("Asia/Ho_Chi_Minh"))
+                .format(java.time.format.DateTimeFormatter.ofPattern("yyyyMMddHHmmss"));
+
+        VNPayService.RefundResult result = vnPayService.createRefundRequest(
+                payment.getGatewayTransactionRef(), refundAmount, originalTransactionDate, ipAddress
+        );
+
+        if (result.success()) {
+            savedRefund.markSuccess(result.gatewayRefundRef());
+            refundRepository.save(savedRefund);
+            publishRefundEvent(savedRefund, payment, "refund.completed");
+        } else {
+            savedRefund.markManualRequired();
+            refundRepository.save(savedRefund);
+            publishRefundEvent(savedRefund, payment, "refund.manual_required");
+        }
+    }
+
+    private void publishRefundEvent(Refund refund, Payment payment, String eventType) {
+        try {
+            String payload = objectMapper.writeValueAsString(Map.of(
+                    "refundId", refund.getId().toString(),
+                    "bookingId", payment.getBookingId().toString(),
+                    "amount", refund.getAmount(),
+                    "status", refund.getStatus().name()
+            ));
+            OutboxEvent event = new OutboxEvent("REFUND", refund.getId(), eventType, payload);
             outboxEventRepository.save(event);
         } catch (Exception e) {
             throw new IllegalStateException("Loi serialize outbox event", e);
