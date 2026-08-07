@@ -23,4 +23,7 @@ public interface BookingRepository extends JpaRepository<Booking, UUID> {
             @org.springframework.data.repository.query.Param("status") Booking.Status status,
             org.springframework.data.domain.Pageable pageable
     );
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @org.springframework.data.jpa.repository.Query("SELECT b FROM Booking b WHERE b.id = :id")
+    java.util.Optional<Booking> findByIdForUpdate(@org.springframework.data.repository.query.Param("id") UUID id);
 }
