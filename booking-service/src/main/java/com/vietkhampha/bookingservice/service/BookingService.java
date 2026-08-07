@@ -119,7 +119,7 @@ public class BookingService {
     }
 
     private void transitionAndReleaseSlot(UUID bookingId, BookingEvent event, String reason, String eventType) {
-        Booking booking = bookingRepository.findById(bookingId).orElseThrow();
+        Booking booking = bookingRepository.findByIdForUpdate(bookingId).orElseThrow();
 
         if (booking.getStatus() != Booking.Status.PENDING) {
             return;
@@ -152,7 +152,7 @@ public class BookingService {
     }
     @Transactional
     public void confirmBookingPayment(UUID bookingId) {
-        Booking booking = bookingRepository.findById(bookingId).orElseThrow();
+        Booking booking = bookingRepository.findByIdForUpdate(bookingId).orElseThrow();
 
         if (booking.getStatus() != Booking.Status.PENDING) {
             return;
@@ -179,7 +179,7 @@ public class BookingService {
     }
     @Transactional
     public void cancelBooking(UUID bookingId, UUID customerId) {
-        Booking booking = bookingRepository.findById(bookingId).orElseThrow(
+        Booking booking = bookingRepository.findByIdForUpdate(bookingId).orElseThrow(
                 () -> new BusinessException(ErrorCode.BOOKING_NOT_FOUND));
 
         if (!booking.getCustomerId().equals(customerId)) {
