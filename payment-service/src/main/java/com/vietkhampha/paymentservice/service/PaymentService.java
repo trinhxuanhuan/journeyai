@@ -18,6 +18,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 
 @Service
@@ -47,6 +48,12 @@ public class PaymentService {
 
         if (!"PENDING".equals(bookingInfo.status())) {
             throw new BusinessException(ErrorCode.BOOKING_NOT_PENDING);
+        }
+        Optional<Payment> existingInitiated = paymentRepository.findFirstByBookingIdAndStatusOrderByCreatedAtDesc(
+                bookingInfo.bookingId(), Payment.Status.INITIATED
+        );
+        if (existingInitiated.isPresent()) {
+            throw new BusinessException(ErrorCode.PAYMENT_ALREADY_INITIATED);
         }
 
         Payment payment = new Payment(bookingInfo.bookingId(), Payment.Gateway.VNPAY, bookingInfo.totalAmount());

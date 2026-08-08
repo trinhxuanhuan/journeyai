@@ -96,6 +96,12 @@ services:
     ports:
       - "9411:9411"
 
+  # ---------- Application services ----------
+  # Chỉ api-gateway được publish ra host (ports). Các service còn lại dùng
+  # "expose" — chỉ truy cập được TRONG Docker network nội bộ, không thể gọi
+  # thẳng từ máy host (localhost:8081, 8084...) như trước đây. Đây là fix
+  # bảo mật: trước đây bất kỳ ai cũng có thể gọi thẳng service, tự gắn header
+  # X-User-Id giả mạo, bỏ qua hoàn toàn xác thực JWT ở Gateway.
 
   auth-service:
     build:
@@ -118,8 +124,9 @@ services:
       REDIS_HOST: redis
       REDIS_PORT: 6379
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
-    ports:
-      - "8081:8080"
+    expose:
+      - "8080"
+
   user-service:
     build:
       context: .
@@ -136,8 +143,9 @@ services:
       SPRING_DATASOURCE_USERNAME: journeyai
       SPRING_DATASOURCE_PASSWORD: journeyai_dev_password
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
-    ports:
-      - "8082:8080"
+    expose:
+      - "8080"
+
   tour-service:
     build:
       context: .
@@ -155,8 +163,9 @@ services:
       MONGO_URI: mongodb://journeyai:journeyai_dev_password@mongodb:27017/tour_service_db?authSource=admin
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       ELASTICSEARCH_URI: http://elasticsearch:9200
-    ports:
-      - "8083:8080"
+    expose:
+      - "8080"
+
   booking-service:
     build:
       context: .
@@ -174,8 +183,8 @@ services:
       SPRING_DATASOURCE_PASSWORD: journeyai_dev_password
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       TOUR_SERVICE_BASE_URL: http://tour-service:8080
-    ports:
-      - "8084:8080"
+    expose:
+      - "8080"
 
   payment-service:
     build:
@@ -196,8 +205,9 @@ services:
       VNPAY_TMN_CODE: ${VNPAY_TMN_CODE}
       VNPAY_HASH_SECRET: ${VNPAY_HASH_SECRET}
       BOOKING_SERVICE_BASE_URL: http://booking-service:8080
-    ports:
-      - "8085:8080"
+    expose:
+      - "8080"
+
   api-gateway:
     build:
       context: .
@@ -227,8 +237,8 @@ services:
       REDIS_URL: redis://redis:6379
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       JWT_SIGNING_SECRET: ${JWT_SIGNING_SECRET:-dev_only_change_me}
-    ports:
-      - "8087:8000"
+    expose:
+      - "8000"
 
 volumes:
   pg_data:
