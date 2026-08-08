@@ -58,11 +58,19 @@ public class TourSlot {
     public boolean hasCapacityFor(int participantCount) {
         return status == Status.OPEN && getAvailableSlots() >= participantCount;
     }
+
     public void reserve(int participantCount) {
         this.bookedCount += participantCount;
     }
 
     public void release(int participantCount) {
-        this.bookedCount = Math.max(0, this.bookedCount - participantCount);
+        if (participantCount > this.bookedCount) {
+            throw new IllegalStateException(
+                    "Khong the release " + participantCount + " cho slot " + id
+                            + " - bookedCount hien tai chi la " + this.bookedCount
+                            + ". Co the day la double-release hoac loi logic goi sai."
+            );
+        }
+        this.bookedCount -= participantCount;
     }
 }
