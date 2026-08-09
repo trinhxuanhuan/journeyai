@@ -47,7 +47,7 @@ public class Booking {
     private Instant updatedAt = Instant.now();
 
     public enum Status {
-        PENDING, CONFIRMED, EXPIRED, PAYMENT_FAILED, CANCELLED, COMPLETED
+        PENDING, CONFIRMED, EXPIRED, PAYMENT_FAILED, CANCELLED, COMPLETED, PAYMENT_REVIEW_REQUIRED
     }
 
     protected Booking() {}

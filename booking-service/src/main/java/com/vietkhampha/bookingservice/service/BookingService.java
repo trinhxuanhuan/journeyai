@@ -21,6 +21,8 @@ import java.math.BigDecimal;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.time.Duration;
+import java.time.Instant;
 
 @Service
 public class BookingService {
@@ -32,6 +34,8 @@ public class BookingService {
     private final TourServiceClient tourServiceClient;
     private final ObjectMapper objectMapper;
     private final BookingStateMachineService stateMachineService;
+
+    private static final long LATE_PAYMENT_GRACE_PERIOD_MINUTES = 15;
 
     public BookingService(BookingRepository bookingRepository, TourSlotRepository tourSlotRepository,
                           IdempotencyKeyRepository idempotencyKeyRepository, OutboxEventRepository outboxEventRepository,
@@ -150,18 +154,97 @@ public class BookingService {
             throw new IllegalStateException("Loi serialize outbox event", e);
         }
     }
+
     @Transactional
     public void confirmBookingPayment(UUID bookingId) {
         Booking booking = bookingRepository.findByIdForUpdate(bookingId).orElseThrow();
 
-        if (booking.getStatus() != Booking.Status.PENDING) {
+        if (booking.getStatus() == Booking.Status.PENDING) {
+            stateMachineService.transition(booking, BookingEvent.PAYMENT_CONFIRMED);
+            bookingRepository.save(booking);
+            publishBookingConfirmedEvent(booking);
             return;
         }
 
-        stateMachineService.transition(booking, BookingEvent.PAYMENT_CONFIRMED);
-        bookingRepository.save(booking);
+        if (booking.getStatus() == Booking.Status.EXPIRED) {
+            handleLatePayment(booking);
+            return;
+        }
 
-        publishBookingConfirmedEvent(booking);
+    }
+
+    private void handleLatePayment(Booking booking) {
+        Duration delay = Duration.between(booking.getHoldExpiresAt(), Instant.now());
+
+        if (delay.toMinutes() > LATE_PAYMENT_GRACE_PERIOD_MINUTES) {
+            stateMachineService.transition(booking, BookingEvent.LATE_PAYMENT_REVIEW);
+            bookingRepository.save(booking);
+            publishPaymentReviewRequiredEvent(booking, delay);
+            return;
+        }
+
+        TourSlot slot = tourSlotRepository.findByIdForUpdate(booking.getTourSlotId()).orElseThrow();
+
+        if (slot.hasCapacityFor(booking.getParticipantCount())) {
+            slot.reserve(booking.getParticipantCount());
+            tourSlotRepository.save(slot);
+
+            stateMachineService.transition(booking, BookingEvent.LATE_PAYMENT_RECOVERED);
+            bookingRepository.save(booking);
+
+            publishLatePaymentRecoveredEvent(booking);
+        } else {
+            publishLatePaymentRefundRequiredEvent(booking);
+        }
+    }
+
+    private void publishLatePaymentRecoveredEvent(Booking booking) {
+        try {
+            String payload = objectMapper.writeValueAsString(Map.of(
+                    "eventId", UUID.randomUUID().toString(),
+                    "bookingId", booking.getId().toString(),
+                    "customerId", booking.getCustomerId().toString(),
+                    "totalAmount", booking.getTotalAmount(),
+                    "recoveredAt", Instant.now().toString()
+            ));
+            OutboxEvent event = new OutboxEvent("BOOKING", booking.getId(), "booking.late_payment_recovered", payload);
+            outboxEventRepository.save(event);
+        } catch (Exception e) {
+            throw new IllegalStateException("Loi serialize outbox event", e);
+        }
+    }
+
+    private void publishLatePaymentRefundRequiredEvent(Booking booking) {
+        try {
+            String payload = objectMapper.writeValueAsString(Map.of(
+                    "eventId", UUID.randomUUID().toString(),
+                    "bookingId", booking.getId().toString(),
+                    "customerId", booking.getCustomerId().toString(),
+                    "totalAmount", booking.getTotalAmount(),
+                    "refundPercentage", 100,
+                    "reason", "LATE_PAYMENT_SLOT_UNAVAILABLE"
+            ));
+            OutboxEvent event = new OutboxEvent("BOOKING", booking.getId(), "booking.late_payment_refund_required", payload);
+            outboxEventRepository.save(event);
+        } catch (Exception e) {
+            throw new IllegalStateException("Loi serialize outbox event", e);
+        }
+    }
+
+    private void publishPaymentReviewRequiredEvent(Booking booking, Duration delay) {
+        try {
+            String payload = objectMapper.writeValueAsString(Map.of(
+                    "eventId", UUID.randomUUID().toString(),
+                    "bookingId", booking.getId().toString(),
+                    "customerId", booking.getCustomerId().toString(),
+                    "totalAmount", booking.getTotalAmount(),
+                    "delayMinutes", delay.toMinutes()
+            ));
+            OutboxEvent event = new OutboxEvent("BOOKING", booking.getId(), "booking.payment_review_required", payload);
+            outboxEventRepository.save(event);
+        } catch (Exception e) {
+            throw new IllegalStateException("Loi serialize outbox event", e);
+        }
     }
 
     private void publishBookingConfirmedEvent(Booking booking) {
@@ -177,6 +260,7 @@ public class BookingService {
             throw new IllegalStateException("Loi serialize outbox event", e);
         }
     }
+
     @Transactional
     public void cancelBooking(UUID bookingId, UUID customerId) {
         Booking booking = bookingRepository.findByIdForUpdate(bookingId).orElseThrow(
@@ -208,6 +292,7 @@ public class BookingService {
 
         publishBookingCancelledEvent(booking, refundPercentage);
     }
+
     private int calculateRefundPercentage(long hoursUntilDeparture) {
         long daysUntilDeparture = hoursUntilDeparture / 24;
         if (daysUntilDeparture >= 7) return 100;

@@ -43,6 +43,14 @@ public class BookingStateMachineConfig extends EnumStateMachineConfigurerAdapter
                 .and()
                 .withExternal()
                 .source(BookingState.CONFIRMED).target(BookingState.COMPLETED)
-                .event(BookingEvent.TOUR_COMPLETED);
+                .event(BookingEvent.TOUR_COMPLETED)
+                .and()
+                .withExternal()
+                .source(BookingState.EXPIRED).target(BookingState.CONFIRMED)
+                .event(BookingEvent.LATE_PAYMENT_RECOVERED)
+                .and()
+                .withExternal()
+                .source(BookingState.EXPIRED).target(BookingState.PAYMENT_REVIEW_REQUIRED)
+                .event(BookingEvent.LATE_PAYMENT_REVIEW);
     }
 }
