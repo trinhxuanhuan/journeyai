@@ -8,6 +8,7 @@ import org.springframework.stereotype.Component;
 
 import java.util.Map;
 import java.util.UUID;
+
 @Component
 public class BookingCancelledListener {
 
@@ -23,10 +24,17 @@ public class BookingCancelledListener {
     @KafkaListener(topics = "booking-events", groupId = "payment-service-refund-consumer")
     public void handleBookingEvent(Map<String, Object> event) {
         String eventType = (String) event.get("eventType");
-        if (!"booking.cancelled".equals(eventType)) {
-            return; // Bỏ qua booking.created/confirmed/expired — chỉ quan tâm cancelled
-        }
 
+        switch (eventType) {
+            case "booking.cancelled" -> handleBookingCancelled(event);
+            case "booking.late_payment_refund_required" -> handleLatePaymentRefundRequired(event);
+            default -> {
+            }
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private void handleBookingCancelled(Map<String, Object> event) {
         Map<String, Object> payload = (Map<String, Object>) event.get("payload");
         boolean refundEligible = Boolean.TRUE.equals(payload.get("refundEligible"));
 
@@ -37,8 +45,19 @@ public class BookingCancelledListener {
 
         UUID bookingId = UUID.fromString((String) payload.get("bookingId"));
         int refundPercentage = ((Number) payload.get("refundPercentage")).intValue();
-        
+
         paymentService.processRefund(bookingId, refundPercentage, "127.0.0.1");
-        log.info("Da xu ly yeu cau hoan tien cho booking {}", bookingId);
+        log.info("Da xu ly yeu cau hoan tien cho booking {} (huy boi khach hang, {}%)", bookingId, refundPercentage);
+    }
+
+    @SuppressWarnings("unchecked")
+    private void handleLatePaymentRefundRequired(Map<String, Object> event) {
+        Map<String, Object> payload = (Map<String, Object>) event.get("payload");
+
+        UUID bookingId = UUID.fromString((String) payload.get("bookingId"));
+        int refundPercentage = ((Number) payload.get("refundPercentage")).intValue();
+
+        paymentService.processRefund(bookingId, refundPercentage, "127.0.0.1");
+        log.info("Da xu ly hoan tien tu dong cho booking {} (thanh toan den muon, het cho, {}%)", bookingId, refundPercentage);
     }
 }

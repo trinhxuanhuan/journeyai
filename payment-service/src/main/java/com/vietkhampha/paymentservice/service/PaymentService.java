@@ -133,9 +133,7 @@ public class PaymentService {
 
     @Transactional
     public void processRefund(UUID bookingId, int refundPercentage, String ipAddress) {
-        Payment payment = paymentRepository.findAll().stream()
-                .filter(p -> p.getBookingId().equals(bookingId) && p.getStatus() == Payment.Status.SUCCESS)
-                .findFirst()
+        Payment payment = paymentRepository.findFirstByBookingIdAndStatusOrderByCreatedAtDesc(bookingId, Payment.Status.SUCCESS)
                 .orElseThrow(() -> new BusinessException(ErrorCode.PAYMENT_NOT_FOUND));
 
         BigDecimal refundAmount = payment.getAmount()
