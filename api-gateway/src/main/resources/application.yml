@@ -44,6 +44,12 @@ spring:
           predicates:
             - Path=/v1/users/**
 
+        - id: booking-service-public-tour-slots
+          uri: http://booking-service:8080
+          order: -1
+          predicates:
+            - Path=/v1/tours/*/slots
+
         - id: tour-service
           uri: http://tour-service:8080
           predicates:

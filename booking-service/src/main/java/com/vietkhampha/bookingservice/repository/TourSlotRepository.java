@@ -8,6 +8,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.time.LocalDate;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -24,4 +25,10 @@ public interface TourSlotRepository extends JpaRepository<TourSlot, UUID> {
     Optional<TourSlot> findByIdForUpdate(@Param("id") java.util.UUID id);
 
     Optional<TourSlot> findByTourIdAndDepartureDate(String tourId, LocalDate departureDate);
+
+    List<TourSlot> findByTourIdAndStatusAndDepartureDateAfterOrderByDepartureDateAsc(
+            String tourId,
+            TourSlot.Status status,
+            LocalDate departureDate
+    );
 }
