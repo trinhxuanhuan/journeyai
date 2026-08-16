@@ -1,5 +1,8 @@
 package com.vietkhampha.bookingservice.dto;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
+
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.UUID;
@@ -10,7 +13,13 @@ public class CreateBookingResponse {
     private BigDecimal totalAmount;
     private Instant holdExpiresAt;
 
-    public CreateBookingResponse(UUID bookingId, String status, BigDecimal totalAmount, Instant holdExpiresAt) {
+    @JsonCreator
+    public CreateBookingResponse(
+            @JsonProperty("bookingId") UUID bookingId,
+            @JsonProperty("status") String status,
+            @JsonProperty("totalAmount") BigDecimal totalAmount,
+            @JsonProperty("holdExpiresAt") Instant holdExpiresAt
+    ) {
         this.bookingId = bookingId;
         this.status = status;
         this.totalAmount = totalAmount;

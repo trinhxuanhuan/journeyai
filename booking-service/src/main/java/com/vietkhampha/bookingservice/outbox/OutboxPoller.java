@@ -3,6 +3,7 @@ package com.vietkhampha.bookingservice.outbox;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.vietkhampha.bookingservice.entity.OutboxEvent;
 import com.vietkhampha.bookingservice.repository.OutboxEventRepository;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.kafka.core.KafkaTemplate;
@@ -15,6 +16,12 @@ import java.util.List;
 import java.util.Map;
 
 @Component
+@ConditionalOnProperty(
+        prefix = "app.outbox.poller",
+        name = "enabled",
+        havingValue = "true",
+        matchIfMissing = true
+)
 public class OutboxPoller {
 
     private static final Logger log = LoggerFactory.getLogger(OutboxPoller.class);

@@ -9,6 +9,9 @@ public enum ErrorCode {
     SLOT_UNAVAILABLE(HttpStatus.CONFLICT, "Rat tiec, khong du cho trong cho so luong yeu cau"),
     VALIDATION_FAILED(HttpStatus.BAD_REQUEST, "Du lieu khong hop le"),
     INVALID_STATE_TRANSITION(HttpStatus.CONFLICT, "Khong the chuyen trang thai booking nhu yeu cau"),
+    IDEMPOTENCY_KEY_INVALID(HttpStatus.BAD_REQUEST, "Idempotency-Key phai co tu 1 den 255 ky tu khong phai khoang trang"),
+    IDEMPOTENCY_KEY_REUSED(HttpStatus.CONFLICT, "Idempotency-Key da duoc dung voi noi dung booking khac"),
+    IDEMPOTENCY_KEY_EXPIRED(HttpStatus.CONFLICT, "Idempotency-Key da het han; hay gui lai voi key moi"),
     BOOKING_NOT_FOUND(HttpStatus.NOT_FOUND, "Khong tim thay booking"),
     BOOKING_NOT_CANCELLABLE(HttpStatus.UNPROCESSABLE_ENTITY, "Booking khong o trang thai cho phep huy"),
     BOOKING_CANCEL_WINDOW_CLOSED(HttpStatus.UNPROCESSABLE_ENTITY, "Da qua thoi han huy (trong vong 24 gio truoc khoi hanh)");

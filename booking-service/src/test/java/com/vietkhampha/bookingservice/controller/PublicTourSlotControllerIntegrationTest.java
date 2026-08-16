@@ -25,7 +25,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @SpringBootTest(
         webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
-        properties = "spring.kafka.listener.auto-startup=false"
+        properties = {
+                "app.outbox.poller.enabled=false",
+                "spring.kafka.listener.auto-startup=false"
+        }
 )
 @Testcontainers
 class PublicTourSlotControllerIntegrationTest {

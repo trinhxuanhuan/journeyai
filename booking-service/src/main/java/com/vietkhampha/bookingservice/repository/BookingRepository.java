@@ -9,6 +9,8 @@ import java.util.List;
 import java.util.UUID;
 
 public interface BookingRepository extends JpaRepository<Booking, UUID> {
+    boolean existsByIdAndCustomerId(UUID id, UUID customerId);
+
     List<Booking> findByStatusAndHoldExpiresAtBefore(Booking.Status status, Instant now);
     @Query("""
         SELECT b FROM Booking b JOIN TourSlot s ON b.tourSlotId = s.id
