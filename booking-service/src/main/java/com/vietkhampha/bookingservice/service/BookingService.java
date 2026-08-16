@@ -19,7 +19,6 @@ import com.vietkhampha.bookingservice.statemachine.BookingStateMachineService;
 
 import java.math.BigDecimal;
 import java.util.Map;
-import java.util.Optional;
 import java.util.UUID;
 import java.time.Duration;
 import java.time.Instant;
@@ -34,13 +33,16 @@ public class BookingService {
     private final TourServiceClient tourServiceClient;
     private final ObjectMapper objectMapper;
     private final BookingStateMachineService stateMachineService;
+    private final BookingRequestHasher bookingRequestHasher;
 
     private static final long LATE_PAYMENT_GRACE_PERIOD_MINUTES = 15;
+    private static final Duration IDEMPOTENCY_TTL = Duration.ofHours(24);
 
     public BookingService(BookingRepository bookingRepository, TourSlotRepository tourSlotRepository,
                           IdempotencyKeyRepository idempotencyKeyRepository, OutboxEventRepository outboxEventRepository,
                           TourServiceClient tourServiceClient, ObjectMapper objectMapper,
-                          BookingStateMachineService stateMachineService) {
+                          BookingStateMachineService stateMachineService,
+                          BookingRequestHasher bookingRequestHasher) {
         this.bookingRepository = bookingRepository;
         this.tourSlotRepository = tourSlotRepository;
         this.idempotencyKeyRepository = idempotencyKeyRepository;
@@ -48,20 +50,37 @@ public class BookingService {
         this.tourServiceClient = tourServiceClient;
         this.objectMapper = objectMapper;
         this.stateMachineService = stateMachineService;
+        this.bookingRequestHasher = bookingRequestHasher;
     }
 
     public record BookingResult(CreateBookingResponse response, boolean isReplay) {}
 
     @Transactional
     public BookingResult createBooking(UUID customerId, String idempotencyKey, CreateBookingRequest request) {
+        validateIdempotencyKey(idempotencyKey);
 
+        Instant requestTime = Instant.now();
+        String requestHash = bookingRequestHasher.hash(customerId, request);
+        IdempotencyKeyId idempotencyKeyId = new IdempotencyKeyId(customerId, idempotencyKey);
 
-        Optional<IdempotencyKey> existingKey = idempotencyKeyRepository.findById(idempotencyKey);
-        if (existingKey.isPresent()) {
-            Booking existingBooking = bookingRepository.findById(existingKey.get().getBookingId())
-                    .orElseThrow(() -> new IllegalStateException("Idempotency key tro toi booking khong ton tai"));
-            return new BookingResult(toResponse(existingBooking), true);
+        int claimed = idempotencyKeyRepository.tryClaim(
+                customerId,
+                idempotencyKey,
+                requestHash,
+                BookingRequestHasher.HASH_VERSION,
+                requestTime,
+                requestTime.plus(IDEMPOTENCY_TTL)
+        );
+        if (claimed == 0) {
+            IdempotencyKey existingKey = idempotencyKeyRepository.findById(idempotencyKeyId)
+                    .orElseThrow(() -> new IllegalStateException(
+                            "Idempotency claim conflict resolved without a persisted record"
+                    ));
+            return replayExisting(existingKey, requestHash, requestTime);
         }
+
+        IdempotencyKey claimedKey = idempotencyKeyRepository.findById(idempotencyKeyId)
+                .orElseThrow(() -> new IllegalStateException("Created idempotency claim cannot be loaded"));
 
         TourSlot slot = tourSlotRepository.findByIdForUpdate(request.getTourSlotId())
                 .orElseThrow(() -> new BusinessException(ErrorCode.TOUR_SLOT_NOT_FOUND));
@@ -84,11 +103,65 @@ public class BookingService {
         }
         Booking savedBooking = bookingRepository.save(booking);
 
-        idempotencyKeyRepository.save(new IdempotencyKey(idempotencyKey, savedBooking.getId()));
-
         publishBookingCreatedEvent(savedBooking);
 
-        return new BookingResult(toResponse(savedBooking), false);
+        CreateBookingResponse response = toResponse(savedBooking);
+        claimedKey.complete(savedBooking.getId(), serializeResponseSnapshot(response));
+
+        return new BookingResult(response, false);
+    }
+
+    private BookingResult replayExisting(IdempotencyKey existingKey, String requestHash, Instant requestTime) {
+        if (existingKey.getRecordState() == IdempotencyKey.RecordState.LEGACY_EXPIRED
+                || !requestTime.isBefore(existingKey.getExpiresAt())) {
+            throw new BusinessException(ErrorCode.IDEMPOTENCY_KEY_EXPIRED);
+        }
+
+        if (!BookingRequestHasher.HASH_VERSION.equals(existingKey.getHashVersion())
+                || !requestHash.equals(existingKey.getRequestHash())) {
+            throw new BusinessException(ErrorCode.IDEMPOTENCY_KEY_REUSED);
+        }
+
+        if (existingKey.getRecordState() != IdempotencyKey.RecordState.COMPLETED
+                || existingKey.getBookingId() == null
+                || existingKey.getResponseSnapshot() == null) {
+            throw new IllegalStateException("Committed idempotency record is not replayable");
+        }
+        if (!bookingRepository.existsByIdAndCustomerId(
+                existingKey.getBookingId(),
+                existingKey.getCustomerId()
+        )) {
+            throw new IllegalStateException("Idempotency record does not belong to its booking owner");
+        }
+
+        try {
+            CreateBookingResponse response = objectMapper.readValue(
+                    existingKey.getResponseSnapshot(),
+                    CreateBookingResponse.class
+            );
+            if (!existingKey.getBookingId().equals(response.getBookingId())) {
+                throw new IllegalStateException("Idempotency snapshot bookingId does not match its record");
+            }
+            return new BookingResult(response, true);
+        } catch (BusinessException | IllegalStateException exception) {
+            throw exception;
+        } catch (Exception exception) {
+            throw new IllegalStateException("Cannot deserialize idempotency response snapshot", exception);
+        }
+    }
+
+    private String serializeResponseSnapshot(CreateBookingResponse response) {
+        try {
+            return objectMapper.writeValueAsString(response);
+        } catch (Exception exception) {
+            throw new IllegalStateException("Cannot serialize idempotency response snapshot", exception);
+        }
+    }
+
+    private void validateIdempotencyKey(String idempotencyKey) {
+        if (idempotencyKey == null || idempotencyKey.isBlank() || idempotencyKey.length() > 255) {
+            throw new BusinessException(ErrorCode.IDEMPOTENCY_KEY_INVALID);
+        }
     }
 
     private void publishBookingCreatedEvent(Booking booking) {
