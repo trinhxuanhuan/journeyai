@@ -34,6 +34,12 @@ spring:
           predicates:
             - Path=/v1/payments/**
 
+        - id: tour-service-admin-tour-guides
+          uri: http://tour-service:8080
+          order: -1
+          predicates:
+            - Path=/v1/admin/tour-guides/**
+
         - id: auth-service-admin-demo
           uri: http://auth-service:8080
           predicates:
