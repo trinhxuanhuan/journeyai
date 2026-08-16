@@ -8,11 +8,13 @@ import javax.crypto.spec.SecretKeySpec;
 import java.math.BigDecimal;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.security.SecureRandom;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Map;
+import java.util.Locale;
 import java.util.TreeMap;
 
 @Component
@@ -99,16 +101,30 @@ public class VNPayService {
     }
     public boolean verifyChecksum(Map<String, String> allParams) {
         String receivedHash = allParams.get("vnp_SecureHash");
-        if (receivedHash == null) return false;
+        if (receivedHash == null || !receivedHash.matches("(?i)[0-9a-f]{128}")) {
+            return false;
+        }
 
-        Map<String, String> paramsToVerify = new TreeMap<>(allParams);
-        paramsToVerify.remove("vnp_SecureHash");
-        paramsToVerify.remove("vnp_SecureHashType"); // field phụ, không tính vào chữ ký
+        Map<String, String> paramsToVerify = new TreeMap<>();
+        allParams.forEach((key, value) -> {
+            if (key.startsWith("vnp_")
+                    && !"vnp_SecureHash".equals(key)
+                    && !"vnp_SecureHashType".equals(key)) {
+                paramsToVerify.put(key, value);
+            }
+        });
 
         String queryString = buildQueryString(paramsToVerify);
         String calculatedHash = hmacSHA512(hashSecret, queryString);
 
-        return calculatedHash.equalsIgnoreCase(receivedHash);
+        return MessageDigest.isEqual(
+                calculatedHash.getBytes(StandardCharsets.US_ASCII),
+                receivedHash.toLowerCase(Locale.ROOT).getBytes(StandardCharsets.US_ASCII)
+        );
+    }
+
+    public boolean isExpectedTmnCode(String receivedTmnCode) {
+        return tmnCode.equals(receivedTmnCode);
     }
     public record RefundResult(boolean success, String message, String gatewayRefundRef) {}
     public RefundResult createRefundRequest(String originalTxnRef, java.math.BigDecimal amount,
