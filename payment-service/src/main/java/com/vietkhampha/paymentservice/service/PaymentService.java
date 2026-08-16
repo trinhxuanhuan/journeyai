@@ -4,12 +4,15 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.vietkhampha.paymentservice.client.BookingServiceClient;
 import com.vietkhampha.paymentservice.dto.CreatePaymentRequest;
 import com.vietkhampha.paymentservice.dto.CreatePaymentResponse;
+import com.vietkhampha.paymentservice.dto.VNPayIpnResponse;
 import com.vietkhampha.paymentservice.entity.OutboxEvent;
 import com.vietkhampha.paymentservice.entity.Payment;
+import com.vietkhampha.paymentservice.entity.PaymentLog;
 import com.vietkhampha.paymentservice.entity.Refund;
 import com.vietkhampha.paymentservice.exception.BusinessException;
 import com.vietkhampha.paymentservice.exception.ErrorCode;
 import com.vietkhampha.paymentservice.repository.OutboxEventRepository;
+import com.vietkhampha.paymentservice.repository.PaymentLogRepository;
 import com.vietkhampha.paymentservice.repository.PaymentRepository;
 import com.vietkhampha.paymentservice.repository.RefundRepository;
 import com.vietkhampha.paymentservice.vnpay.VNPayService;
@@ -17,6 +20,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
@@ -30,16 +34,19 @@ public class PaymentService {
     private final VNPayService vnPayService;
     private final ObjectMapper objectMapper;
     private final RefundRepository refundRepository;
+    private final PaymentLogRepository paymentLogRepository;
 
     public PaymentService(PaymentRepository paymentRepository, OutboxEventRepository outboxEventRepository,
                           BookingServiceClient bookingServiceClient, VNPayService vnPayService,
-                          ObjectMapper objectMapper, RefundRepository refundRepository) {
+                          ObjectMapper objectMapper, RefundRepository refundRepository,
+                          PaymentLogRepository paymentLogRepository) {
         this.paymentRepository = paymentRepository;
         this.outboxEventRepository = outboxEventRepository;
         this.bookingServiceClient = bookingServiceClient;
         this.vnPayService = vnPayService;
         this.objectMapper = objectMapper;
         this.refundRepository = refundRepository;
+        this.paymentLogRepository = paymentLogRepository;
     }
 
     @Transactional
@@ -89,30 +96,72 @@ public class PaymentService {
     }
 
     @Transactional
-    public void confirmPayment(String txnRef) {
-        Payment payment = paymentRepository.findByGatewayTransactionRef(txnRef)
-                .orElseThrow(() -> new BusinessException(ErrorCode.PAYMENT_NOT_FOUND));
-        if (payment.getStatus() != Payment.Status.INITIATED) {
-            return;
+    public VNPayIpnResponse processVnPayIpn(Map<String, String> params) {
+        String txnRef = params.get("vnp_TxnRef");
+        if (txnRef == null || txnRef.isBlank()) {
+            return VNPayIpnResponse.invalidRequest();
         }
 
-        payment.markSuccess();
+        Optional<Payment> paymentResult = paymentRepository.findByGatewayTransactionRefForUpdate(txnRef);
+        if (paymentResult.isEmpty()) {
+            return VNPayIpnResponse.orderNotFound();
+        }
+
+        Payment payment = paymentResult.get();
+        if (!vnPayService.isExpectedTmnCode(params.get("vnp_TmnCode"))
+                || payment.getGateway() != Payment.Gateway.VNPAY
+                || !"VND".equals(payment.getCurrency())) {
+            return VNPayIpnResponse.invalidRequest();
+        }
+
+        if (!matchesVnPayAmount(payment.getAmount(), params.get("vnp_Amount"))) {
+            return VNPayIpnResponse.invalidAmount();
+        }
+
+        String responseCode = params.get("vnp_ResponseCode");
+        String transactionStatus = params.get("vnp_TransactionStatus");
+        if (responseCode == null || responseCode.isBlank()
+                || transactionStatus == null || transactionStatus.isBlank()) {
+            return VNPayIpnResponse.invalidRequest();
+        }
+
+        if (payment.getStatus() != Payment.Status.INITIATED) {
+            return VNPayIpnResponse.alreadyConfirmed();
+        }
+
+        boolean successful = "00".equals(responseCode) && "00".equals(transactionStatus);
+        if (successful) {
+            payment.markSuccess();
+        } else {
+            payment.markFailed();
+        }
+
         paymentRepository.save(payment);
-        publishPaymentEvent(payment, "payment.succeeded");
+        publishPaymentEvent(payment, successful ? "payment.succeeded" : "payment.failed");
+        saveIpnLog(payment, params);
+        return VNPayIpnResponse.success();
     }
 
-    @Transactional
-    public void failPayment(String txnRef) {
-        Payment payment = paymentRepository.findByGatewayTransactionRef(txnRef)
-                .orElseThrow(() -> new BusinessException(ErrorCode.PAYMENT_NOT_FOUND));
-
-        if (payment.getStatus() != Payment.Status.INITIATED) {
-            return;
+    private boolean matchesVnPayAmount(BigDecimal paymentAmount, String receivedAmount) {
+        if (receivedAmount == null || !receivedAmount.matches("[0-9]{1,12}")) {
+            return false;
         }
 
-        payment.markFailed();
-        paymentRepository.save(payment);
-        publishPaymentEvent(payment, "payment.failed");
+        try {
+            BigInteger expectedAmount = paymentAmount.movePointRight(2).toBigIntegerExact();
+            return expectedAmount.signum() > 0 && expectedAmount.equals(new BigInteger(receivedAmount));
+        } catch (ArithmeticException e) {
+            return false;
+        }
+    }
+
+    private void saveIpnLog(Payment payment, Map<String, String> params) {
+        try {
+            String rawPayload = objectMapper.writeValueAsString(params);
+            paymentLogRepository.save(new PaymentLog(payment.getId(), "WEBHOOK_IPN", rawPayload));
+        } catch (Exception e) {
+            throw new IllegalStateException("Loi serialize VNPay IPN payload", e);
+        }
     }
 
     private void publishPaymentEvent(Payment payment, String eventType) {
