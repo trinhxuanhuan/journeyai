@@ -1,12 +1,19 @@
 package com.vietkhampha.paymentservice.dto;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
+
 import java.util.UUID;
 
 public class CreatePaymentResponse {
     private UUID paymentId;
     private String redirectUrl;
 
-    public CreatePaymentResponse(UUID paymentId, String redirectUrl) {
+    @JsonCreator
+    public CreatePaymentResponse(
+            @JsonProperty("paymentId") UUID paymentId,
+            @JsonProperty("redirectUrl") String redirectUrl
+    ) {
         this.paymentId = paymentId;
         this.redirectUrl = redirectUrl;
     }

@@ -10,6 +10,7 @@ import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.SecureRandom;
+import java.time.Instant;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
@@ -42,9 +43,19 @@ public class VNPayService {
 
     public record PaymentUrlResult(String redirectUrl, String transactionRef) {}
 
-    public PaymentUrlResult createPaymentUrl(BigDecimal amount, String orderInfo, String ipAddress) {
+    public PaymentUrlResult createPaymentUrl(
+            BigDecimal amount,
+            String orderInfo,
+            String ipAddress,
+            Instant expiresAt
+    ) {
         String txnRef = generateTransactionRef();
         ZonedDateTime now = ZonedDateTime.now(VN_ZONE);
+        ZonedDateTime expiration = expiresAt.atZone(VN_ZONE);
+
+        if (!expiration.isAfter(now)) {
+            throw new IllegalArgumentException("VNPay expiration must be in the future");
+        }
 
         Map<String, String> params = new TreeMap<>();
         params.put("vnp_Version", "2.1.0");
@@ -59,7 +70,7 @@ public class VNPayService {
         params.put("vnp_ReturnUrl", returnUrl);
         params.put("vnp_IpAddr", ipAddress);
         params.put("vnp_CreateDate", now.format(VNPAY_DATE_FORMAT));
-        params.put("vnp_ExpireDate", now.plusMinutes(15).format(VNPAY_DATE_FORMAT)); // khớp UC-D01: giữ chỗ 15 phút
+        params.put("vnp_ExpireDate", expiration.format(VNPAY_DATE_FORMAT));
 
         String queryString = buildQueryString(params);
         String secureHash = hmacSHA512(hashSecret, queryString);

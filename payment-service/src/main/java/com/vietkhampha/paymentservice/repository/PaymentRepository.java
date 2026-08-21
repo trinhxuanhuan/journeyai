@@ -7,10 +7,20 @@ import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.util.Collection;
 import java.util.Optional;
 import java.util.UUID;
 
 public interface PaymentRepository extends JpaRepository<Payment, UUID> {
+
+    @Query(value = """
+            SELECT 1
+            FROM pg_advisory_xact_lock(
+                hashtextextended(CAST(:bookingId AS text), 0)
+            )
+            """, nativeQuery = true)
+    int acquireBookingInitiationLock(@Param("bookingId") UUID bookingId);
+
     Optional<Payment> findByGatewayTransactionRef(String ref);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
@@ -18,4 +28,8 @@ public interface PaymentRepository extends JpaRepository<Payment, UUID> {
     Optional<Payment> findByGatewayTransactionRefForUpdate(@Param("ref") String ref);
 
     Optional<Payment> findFirstByBookingIdAndStatusOrderByCreatedAtDesc(UUID bookingId, Payment.Status status);
+
+    boolean existsByBookingIdAndStatusIn(UUID bookingId, Collection<Payment.Status> statuses);
+
+    boolean existsByIdAndBookingId(UUID id, UUID bookingId);
 }

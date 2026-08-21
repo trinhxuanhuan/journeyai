@@ -7,22 +7,32 @@ import com.vietkhampha.paymentservice.dto.CreatePaymentResponse;
 import com.vietkhampha.paymentservice.dto.VNPayIpnResponse;
 import com.vietkhampha.paymentservice.entity.OutboxEvent;
 import com.vietkhampha.paymentservice.entity.Payment;
+import com.vietkhampha.paymentservice.entity.PaymentIdempotencyKey;
+import com.vietkhampha.paymentservice.entity.PaymentIdempotencyKeyId;
 import com.vietkhampha.paymentservice.entity.PaymentLog;
 import com.vietkhampha.paymentservice.entity.Refund;
 import com.vietkhampha.paymentservice.exception.BusinessException;
 import com.vietkhampha.paymentservice.exception.ErrorCode;
 import com.vietkhampha.paymentservice.repository.OutboxEventRepository;
+import com.vietkhampha.paymentservice.repository.PaymentIdempotencyKeyRepository;
 import com.vietkhampha.paymentservice.repository.PaymentLogRepository;
 import com.vietkhampha.paymentservice.repository.PaymentRepository;
 import com.vietkhampha.paymentservice.repository.RefundRepository;
 import com.vietkhampha.paymentservice.vnpay.VNPayService;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 
 @Service
@@ -35,11 +45,23 @@ public class PaymentService {
     private final ObjectMapper objectMapper;
     private final RefundRepository refundRepository;
     private final PaymentLogRepository paymentLogRepository;
+    private final PaymentIdempotencyKeyRepository paymentIdempotencyKeyRepository;
+    private final PaymentRequestHasher paymentRequestHasher;
+    private final TransactionTemplate transactionTemplate;
+
+    private static final Duration IDEMPOTENCY_KEY_RETENTION = Duration.ofHours(24);
+    private static final Set<Payment.Status> PAYMENT_INITIATION_BLOCKING_STATUSES = Set.of(
+            Payment.Status.INITIATED,
+            Payment.Status.SUCCESS
+    );
 
     public PaymentService(PaymentRepository paymentRepository, OutboxEventRepository outboxEventRepository,
                           BookingServiceClient bookingServiceClient, VNPayService vnPayService,
                           ObjectMapper objectMapper, RefundRepository refundRepository,
-                          PaymentLogRepository paymentLogRepository) {
+                          PaymentLogRepository paymentLogRepository,
+                          PaymentIdempotencyKeyRepository paymentIdempotencyKeyRepository,
+                          PaymentRequestHasher paymentRequestHasher,
+                          PlatformTransactionManager transactionManager) {
         this.paymentRepository = paymentRepository;
         this.outboxEventRepository = outboxEventRepository;
         this.bookingServiceClient = bookingServiceClient;
@@ -47,37 +69,215 @@ public class PaymentService {
         this.objectMapper = objectMapper;
         this.refundRepository = refundRepository;
         this.paymentLogRepository = paymentLogRepository;
+        this.paymentIdempotencyKeyRepository = paymentIdempotencyKeyRepository;
+        this.paymentRequestHasher = paymentRequestHasher;
+        this.transactionTemplate = new TransactionTemplate(transactionManager);
     }
 
-    @Transactional
-    public CreatePaymentResponse createPayment(String userIdHeader, CreatePaymentRequest request, String ipAddress) {
-        BookingServiceClient.BookingInfo bookingInfo = bookingServiceClient.getBooking(request.getBookingId(), userIdHeader);
+    public record PaymentResult(CreatePaymentResponse response, boolean replay) {
+    }
+
+    public PaymentResult createPayment(
+            String userIdHeader,
+            String idempotencyKey,
+            CreatePaymentRequest request,
+            String ipAddress
+    ) {
+        UUID customerId = parseCustomerId(userIdHeader);
+        validateIdempotencyKey(idempotencyKey);
+
+        Instant requestTime = Instant.now();
+        String requestHash = paymentRequestHasher.hash(customerId, request);
+        PaymentIdempotencyKeyId keyId = new PaymentIdempotencyKeyId(customerId, idempotencyKey);
+
+        Optional<PaymentIdempotencyKey> existingKey = paymentIdempotencyKeyRepository.findById(keyId);
+        if (existingKey.isPresent()) {
+            return replayExisting(existingKey.get(), request.getBookingId(), requestHash, requestTime);
+        }
+
+        BookingServiceClient.BookingInfo bookingInfo = bookingServiceClient.getBooking(
+                request.getBookingId(),
+                userIdHeader
+        );
+
+        if (!request.getBookingId().equals(bookingInfo.bookingId())) {
+            throw new IllegalStateException("Booking Service returned a different bookingId");
+        }
 
         if (!"PENDING".equals(bookingInfo.status())) {
             throw new BusinessException(ErrorCode.BOOKING_NOT_PENDING);
         }
-        Optional<Payment> existingInitiated = paymentRepository.findFirstByBookingIdAndStatusOrderByCreatedAtDesc(
-                bookingInfo.bookingId(), Payment.Status.INITIATED
-        );
-        if (existingInitiated.isPresent()) {
-            throw new BusinessException(ErrorCode.PAYMENT_ALREADY_INITIATED);
-        }
-
-        Payment payment = new Payment(bookingInfo.bookingId(), Payment.Gateway.VNPAY, bookingInfo.totalAmount());
-        Payment savedPayment = paymentRepository.save(payment);
+        ensurePaymentWindowOpen(bookingInfo.holdExpiresAt(), requestTime);
 
         VNPayService.PaymentUrlResult result = vnPayService.createPaymentUrl(
                 bookingInfo.totalAmount(),
                 "Thanh toan booking " + bookingInfo.bookingId(),
-                ipAddress
+                ipAddress,
+                bookingInfo.holdExpiresAt()
         );
 
-        savedPayment.assignTransactionRef(result.transactionRef());
-        paymentRepository.save(savedPayment);
+        Instant keyExpiresAt = requestTime.plus(IDEMPOTENCY_KEY_RETENTION);
+        if (keyExpiresAt.isBefore(bookingInfo.holdExpiresAt())) {
+            keyExpiresAt = bookingInfo.holdExpiresAt();
+        }
+        Instant finalKeyExpiresAt = keyExpiresAt;
+
+        try {
+            return Objects.requireNonNull(transactionTemplate.execute(status -> createPaymentTransaction(
+                    customerId,
+                    idempotencyKey,
+                    requestHash,
+                    requestTime,
+                    bookingInfo,
+                    result,
+                    finalKeyExpiresAt
+            )));
+        } catch (DataIntegrityViolationException exception) {
+            if (paymentRepository.existsByBookingIdAndStatusIn(
+                    bookingInfo.bookingId(),
+                    PAYMENT_INITIATION_BLOCKING_STATUSES
+            )) {
+                throw new BusinessException(ErrorCode.PAYMENT_ALREADY_INITIATED);
+            }
+            throw exception;
+        }
+    }
+
+    private PaymentResult createPaymentTransaction(
+            UUID customerId,
+            String idempotencyKey,
+            String requestHash,
+            Instant requestTime,
+            BookingServiceClient.BookingInfo bookingInfo,
+            VNPayService.PaymentUrlResult paymentUrl,
+            Instant keyExpiresAt
+    ) {
+        PaymentIdempotencyKeyId keyId = new PaymentIdempotencyKeyId(customerId, idempotencyKey);
+        int claimed = paymentIdempotencyKeyRepository.tryClaim(
+                customerId,
+                idempotencyKey,
+                requestHash,
+                PaymentRequestHasher.HASH_VERSION,
+                requestTime,
+                bookingInfo.holdExpiresAt(),
+                keyExpiresAt
+        );
+        if (claimed == 0) {
+            PaymentIdempotencyKey existingKey = paymentIdempotencyKeyRepository.findById(keyId)
+                    .orElseThrow(() -> new IllegalStateException(
+                            "Payment idempotency claim conflict resolved without a persisted record"
+                    ));
+            return replayExisting(existingKey, bookingInfo.bookingId(), requestHash, Instant.now());
+        }
+
+        PaymentIdempotencyKey claimedKey = paymentIdempotencyKeyRepository.findById(keyId)
+                .orElseThrow(() -> new IllegalStateException("Created payment idempotency claim cannot be loaded"));
+
+        int lockResult = paymentRepository.acquireBookingInitiationLock(bookingInfo.bookingId());
+        if (lockResult != 1) {
+            throw new IllegalStateException("Cannot acquire booking payment initiation lock");
+        }
+
+        ensurePaymentWindowOpen(bookingInfo.holdExpiresAt(), Instant.now());
+        if (paymentRepository.existsByBookingIdAndStatusIn(
+                bookingInfo.bookingId(),
+                PAYMENT_INITIATION_BLOCKING_STATUSES
+        )) {
+            throw new BusinessException(ErrorCode.PAYMENT_ALREADY_INITIATED);
+        }
+
+        Payment payment = new Payment(
+                bookingInfo.bookingId(),
+                Payment.Gateway.VNPAY,
+                bookingInfo.totalAmount()
+        );
+        payment.assignTransactionRef(paymentUrl.transactionRef());
+        Payment savedPayment = paymentRepository.saveAndFlush(payment);
 
         publishPaymentInitiatedEvent(savedPayment);
 
-        return new CreatePaymentResponse(savedPayment.getId(), result.redirectUrl());
+        CreatePaymentResponse response = new CreatePaymentResponse(
+                savedPayment.getId(),
+                paymentUrl.redirectUrl()
+        );
+        claimedKey.complete(
+                bookingInfo.bookingId(),
+                savedPayment.getId(),
+                serializeResponseSnapshot(response)
+        );
+        paymentIdempotencyKeyRepository.save(claimedKey);
+        return new PaymentResult(response, false);
+    }
+
+    private PaymentResult replayExisting(
+            PaymentIdempotencyKey existingKey,
+            UUID requestedBookingId,
+            String requestHash,
+            Instant requestTime
+    ) {
+        if (!requestTime.isBefore(existingKey.getReplayExpiresAt())) {
+            throw new BusinessException(ErrorCode.IDEMPOTENCY_KEY_EXPIRED);
+        }
+        if (!PaymentRequestHasher.HASH_VERSION.equals(existingKey.getHashVersion())
+                || !requestHash.equals(existingKey.getRequestHash())) {
+            throw new BusinessException(ErrorCode.IDEMPOTENCY_KEY_REUSED);
+        }
+        if (existingKey.getRecordState() != PaymentIdempotencyKey.RecordState.COMPLETED
+                || existingKey.getBookingId() == null
+                || existingKey.getPaymentId() == null
+                || existingKey.getResponseSnapshot() == null) {
+            throw new IllegalStateException("Committed payment idempotency record is not replayable");
+        }
+        if (!requestedBookingId.equals(existingKey.getBookingId())
+                || !paymentRepository.existsByIdAndBookingId(
+                        existingKey.getPaymentId(),
+                        existingKey.getBookingId()
+                )) {
+            throw new IllegalStateException("Payment idempotency record does not match its payment");
+        }
+
+        try {
+            CreatePaymentResponse response = objectMapper.readValue(
+                    existingKey.getResponseSnapshot(),
+                    CreatePaymentResponse.class
+            );
+            if (!existingKey.getPaymentId().equals(response.getPaymentId())) {
+                throw new IllegalStateException("Payment idempotency snapshot paymentId does not match its record");
+            }
+            return new PaymentResult(response, true);
+        } catch (BusinessException | IllegalStateException exception) {
+            throw exception;
+        } catch (Exception exception) {
+            throw new IllegalStateException("Cannot deserialize payment idempotency response snapshot", exception);
+        }
+    }
+
+    private String serializeResponseSnapshot(CreatePaymentResponse response) {
+        try {
+            return objectMapper.writeValueAsString(response);
+        } catch (Exception exception) {
+            throw new IllegalStateException("Cannot serialize payment idempotency response snapshot", exception);
+        }
+    }
+
+    private void validateIdempotencyKey(String idempotencyKey) {
+        if (idempotencyKey == null || idempotencyKey.isBlank() || idempotencyKey.length() > 255) {
+            throw new BusinessException(ErrorCode.IDEMPOTENCY_KEY_INVALID);
+        }
+    }
+
+    private UUID parseCustomerId(String userIdHeader) {
+        try {
+            return UUID.fromString(userIdHeader);
+        } catch (IllegalArgumentException exception) {
+            throw new IllegalStateException("Trusted X-User-Id is not a UUID", exception);
+        }
+    }
+
+    private void ensurePaymentWindowOpen(Instant holdExpiresAt, Instant now) {
+        if (holdExpiresAt == null || !holdExpiresAt.isAfter(now.plusSeconds(1))) {
+            throw new BusinessException(ErrorCode.PAYMENT_WINDOW_EXPIRED);
+        }
     }
 
     private void publishPaymentInitiatedEvent(Payment payment) {
