@@ -22,13 +22,20 @@ public class PaymentController {
     @PostMapping
     public ResponseEntity<CreatePaymentResponse> createPayment(
             @RequestHeader("X-User-Id") String userIdHeader,
+            @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
             @Valid @RequestBody CreatePaymentRequest request,
             HttpServletRequest httpRequest
     ) {
 
         String ipAddress = httpRequest.getRemoteAddr();
-        CreatePaymentResponse response = paymentService.createPayment(userIdHeader, request, ipAddress);
-        return ResponseEntity.status(HttpStatus.CREATED).body(response);
+        PaymentService.PaymentResult result = paymentService.createPayment(
+                userIdHeader,
+                idempotencyKey,
+                request,
+                ipAddress
+        );
+        HttpStatus status = result.replay() ? HttpStatus.OK : HttpStatus.CREATED;
+        return ResponseEntity.status(status).body(result.response());
     }
 
 }
