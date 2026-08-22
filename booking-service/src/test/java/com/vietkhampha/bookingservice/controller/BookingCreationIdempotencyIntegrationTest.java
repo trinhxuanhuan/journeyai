@@ -120,6 +120,7 @@ class BookingCreationIdempotencyIntegrationTest {
                     booking_participants,
                     idempotency_keys,
                     outbox_events,
+                    processed_payment_events,
                     bookings,
                     tour_slots
                 """);

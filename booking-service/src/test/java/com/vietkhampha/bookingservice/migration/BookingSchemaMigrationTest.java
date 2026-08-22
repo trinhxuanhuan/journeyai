@@ -60,21 +60,45 @@ class BookingSchemaMigrationTest {
     }
 
     @Test
-    void cleanDatabase_runsV1ThroughV3_andRestartDoesNotReapplyMigrations() throws SQLException {
+    void cleanDatabase_runsV1ThroughV4_andRestartDoesNotReapplyMigrations() throws SQLException {
         Flyway flyway = flyway(MIGRATION_LOCATION);
 
         MigrateResult firstStart = flyway.migrate();
 
-        assertEquals(3, firstStart.migrationsExecuted);
-        assertEquals(3, queryForInt("SELECT count(*) FROM flyway_schema_history WHERE success"));
+        assertEquals(4, firstStart.migrationsExecuted);
+        assertEquals(4, queryForInt("SELECT count(*) FROM flyway_schema_history WHERE success"));
         assertTrue(columnExists("idempotency_keys", "customer_id"));
         assertTrue(columnExists("idempotency_keys", "response_snapshot"));
         assertTrue(bookingStatusConstraint().contains("PAYMENT_REVIEW_REQUIRED"));
+        assertTrue(tableExists("processed_payment_events"));
+        assertEquals(List.of("event_id"), primaryKeyColumns("processed_payment_events"));
+        assertEquals(4, queryForInt("""
+                SELECT count(*)
+                FROM pg_constraint constraint_definition
+                JOIN pg_class source_table ON source_table.oid = constraint_definition.conrelid
+                JOIN pg_namespace source_schema ON source_schema.oid = source_table.relnamespace
+                WHERE source_schema.nspname = 'public'
+                  AND source_table.relname = 'processed_payment_events'
+                  AND constraint_definition.convalidated
+                  AND constraint_definition.conname IN (
+                      'processed_payment_events_pkey',
+                      'processed_payment_events_payment_key',
+                      'processed_payment_events_booking_fkey',
+                      'processed_payment_events_type_check'
+                  )
+                """));
+        assertEquals(1, queryForInt("""
+                SELECT count(*)
+                FROM pg_indexes
+                WHERE schemaname = 'public'
+                  AND tablename = 'processed_payment_events'
+                  AND indexname = 'idx_processed_payment_events_booking_id'
+                """));
 
         MigrateResult secondStart = flyway(MIGRATION_LOCATION).migrate();
 
         assertEquals(0, secondStart.migrationsExecuted);
-        assertEquals(3, queryForInt("SELECT count(*) FROM flyway_schema_history WHERE success"));
+        assertEquals(4, queryForInt("SELECT count(*) FROM flyway_schema_history WHERE success"));
     }
 
     @Test
@@ -108,7 +132,7 @@ class BookingSchemaMigrationTest {
         assertEquals("BASELINE", queryForString("""
                 SELECT type FROM flyway_schema_history WHERE version = '1'
                 """));
-        assertEquals(3, queryForInt("SELECT count(*) FROM flyway_schema_history WHERE success"));
+        assertEquals(4, queryForInt("SELECT count(*) FROM flyway_schema_history WHERE success"));
     }
 
     @Test
@@ -162,7 +186,7 @@ class BookingSchemaMigrationTest {
                   AND response_snapshot IS NULL
                 """));
         assertEquals(List.of("customer_id", "key"), primaryKeyColumns("idempotency_keys"));
-        assertEquals(3, queryForInt("SELECT count(*) FROM flyway_schema_history WHERE success"));
+        assertEquals(4, queryForInt("SELECT count(*) FROM flyway_schema_history WHERE success"));
     }
 
     @Test
