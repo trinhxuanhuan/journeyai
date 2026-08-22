@@ -11,8 +11,10 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 @Component
 @ConditionalOnProperty(name = "app.outbox.poller.enabled", havingValue = "true", matchIfMissing = true)
@@ -39,11 +41,17 @@ public class OutboxPoller {
 
         for (OutboxEvent event : pending) {
             try {
-                Map<String, Object> message = Map.of(
-                        "eventType", event.getEventType(),
-                        "payload", objectMapper.readValue(event.getPayload(), Map.class)
-                );
-                kafkaTemplate.send(TOPIC, event.getAggregateId().toString(), message).get();
+                Map<String, Object> payload = objectMapper.readValue(event.getPayload(), Map.class);
+                UUID bookingId = requiredUuid(payload, "bookingId");
+
+                Map<String, Object> message = new LinkedHashMap<>();
+                message.put("eventId", event.getId().toString());
+                message.put("eventType", event.getEventType());
+                message.put("aggregateId", event.getAggregateId().toString());
+                message.put("occurredAt", event.getCreatedAt().toString());
+                message.put("payload", payload);
+
+                kafkaTemplate.send(TOPIC, bookingId.toString(), message).get();
                 event.markPublished();
                 outboxEventRepository.save(event);
                 log.info("Da publish outbox event {} (type={})", event.getId(), event.getEventType());
@@ -51,5 +59,13 @@ public class OutboxPoller {
                 log.error("Loi khi publish outbox event {}, se thu lai o lan quet sau", event.getId(), e);
             }
         }
+    }
+
+    private UUID requiredUuid(Map<String, Object> payload, String fieldName) {
+        Object rawValue = payload.get(fieldName);
+        if (!(rawValue instanceof String value) || value.isBlank()) {
+            throw new IllegalArgumentException("Payment event payload is missing " + fieldName);
+        }
+        return UUID.fromString(value);
     }
 }
