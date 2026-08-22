@@ -4,6 +4,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.vietkhampha.bookingservice.client.TourServiceClient;
 import com.vietkhampha.bookingservice.dto.CreateBookingRequest;
 import com.vietkhampha.bookingservice.dto.CreateBookingResponse;
+import com.vietkhampha.bookingservice.dto.CustomerBookingItemResponse;
+import com.vietkhampha.bookingservice.dto.CustomerBookingListResponse;
 import com.vietkhampha.bookingservice.dto.ParticipantDto;
 import com.vietkhampha.bookingservice.entity.*;
 import com.vietkhampha.bookingservice.exception.BusinessException;
@@ -16,6 +18,9 @@ import com.vietkhampha.bookingservice.statemachine.BookingEvent;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import com.vietkhampha.bookingservice.statemachine.BookingStateMachineService;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 
 import java.math.BigDecimal;
 import java.util.Map;
@@ -54,6 +59,30 @@ public class BookingService {
     }
 
     public record BookingResult(CreateBookingResponse response, boolean isReplay) {}
+
+    @Transactional(readOnly = true)
+    public CustomerBookingListResponse getCustomerBookings(UUID customerId, int page, int size) {
+        if (page < 0 || size < 1 || size > 100) {
+            throw new BusinessException(ErrorCode.PAGINATION_INVALID);
+        }
+
+        Sort sort = Sort.by(Sort.Order.desc("createdAt"), Sort.Order.desc("id"));
+        Page<Booking> result = bookingRepository.findByCustomerId(
+                customerId,
+                PageRequest.of(page, size, sort)
+        );
+        var items = result.getContent().stream()
+                .map(CustomerBookingItemResponse::from)
+                .toList();
+
+        return new CustomerBookingListResponse(
+                items,
+                result.getTotalElements(),
+                result.getNumber(),
+                result.getSize(),
+                result.getTotalPages()
+        );
+    }
 
     @Transactional
     public BookingResult createBooking(UUID customerId, String idempotencyKey, CreateBookingRequest request) {
