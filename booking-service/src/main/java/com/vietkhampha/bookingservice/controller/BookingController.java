@@ -3,6 +3,7 @@ package com.vietkhampha.bookingservice.controller;
 import com.vietkhampha.bookingservice.dto.BookingResponse;
 import com.vietkhampha.bookingservice.dto.CreateBookingRequest;
 import com.vietkhampha.bookingservice.dto.CreateBookingResponse;
+import com.vietkhampha.bookingservice.dto.CustomerBookingListResponse;
 import com.vietkhampha.bookingservice.entity.Booking;
 import com.vietkhampha.bookingservice.exception.BusinessException;
 import com.vietkhampha.bookingservice.exception.ErrorCode;
@@ -38,6 +39,16 @@ public class BookingController {
 
         HttpStatus status = result.isReplay() ? HttpStatus.OK : HttpStatus.CREATED;
         return ResponseEntity.status(status).body(result.response());
+    }
+
+    @GetMapping("/me")
+    public ResponseEntity<CustomerBookingListResponse> getMyBookings(
+            @RequestHeader("X-User-Id") String userIdHeader,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size
+    ) {
+        UUID customerId = UUID.fromString(userIdHeader);
+        return ResponseEntity.ok(bookingService.getCustomerBookings(customerId, page, size));
     }
 
     @GetMapping("/{id}")
