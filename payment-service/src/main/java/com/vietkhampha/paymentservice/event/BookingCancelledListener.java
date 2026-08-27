@@ -1,10 +1,12 @@
 package com.vietkhampha.paymentservice.event;
 
 import com.vietkhampha.paymentservice.service.PaymentService;
+import com.vietkhampha.paymentservice.repository.ProcessedBookingEventRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Map;
 import java.util.UUID;
@@ -15,21 +17,38 @@ public class BookingCancelledListener {
     private static final Logger log = LoggerFactory.getLogger(BookingCancelledListener.class);
 
     private final PaymentService paymentService;
+    private final ProcessedBookingEventRepository processedBookingEventRepository;
 
-    public BookingCancelledListener(PaymentService paymentService) {
+    public BookingCancelledListener(PaymentService paymentService,
+                                    ProcessedBookingEventRepository processedBookingEventRepository) {
         this.paymentService = paymentService;
+        this.processedBookingEventRepository = processedBookingEventRepository;
     }
 
     @SuppressWarnings("unchecked")
+    @Transactional
     @KafkaListener(topics = "booking-events", groupId = "payment-service-refund-consumer")
     public void handleBookingEvent(Map<String, Object> event) {
         String eventType = (String) event.get("eventType");
 
+        if (!"booking.cancelled".equals(eventType)
+                && !"booking.late_payment_refund_required".equals(eventType)) {
+            return;
+        }
+        Map<String, Object> payload = (Map<String, Object>) event.get("payload");
+        UUID bookingId = UUID.fromString((String) payload.get("bookingId"));
+        UUID eventId = event.get("eventId") == null
+                ? UUID.nameUUIDFromBytes((eventType + "|" + bookingId).getBytes(java.nio.charset.StandardCharsets.UTF_8))
+                : UUID.fromString(event.get("eventId").toString());
+        if (!processedBookingEventRepository.tryClaim(eventId, bookingId, eventType)) {
+            log.info("Bo qua booking event da xu ly {}", eventId);
+            return;
+        }
+
         switch (eventType) {
             case "booking.cancelled" -> handleBookingCancelled(event);
             case "booking.late_payment_refund_required" -> handleLatePaymentRefundRequired(event);
-            default -> {
-            }
+            default -> { }
         }
     }
 

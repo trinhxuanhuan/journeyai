@@ -42,20 +42,24 @@ class PaymentSchemaMigrationTest {
     }
 
     @Test
-    void cleanDatabase_runsV1AndV2AndIsRepeatable() throws Exception {
+    void cleanDatabase_runsAllMigrationsAndIsRepeatable() throws Exception {
         Flyway flyway = flyway();
 
         MigrateResult first = flyway.migrate();
         MigrateResult second = flyway.migrate();
 
-        assertThat(first.migrationsExecuted).isEqualTo(2);
+        assertThat(first.migrationsExecuted).isEqualTo(3);
         assertThat(second.migrationsExecuted).isZero();
         assertThat(queryString("SELECT version FROM flyway_schema_history WHERE success ORDER BY installed_rank DESC LIMIT 1"))
-                .isEqualTo("2");
+                .isEqualTo("3");
         assertThat(queryString("SELECT to_regclass('public.payment_idempotency_keys')::text"))
                 .isEqualTo("payment_idempotency_keys");
         assertThat(queryString("SELECT to_regclass('public.payments_one_payable_per_booking_idx')::text"))
                 .isEqualTo("payments_one_payable_per_booking_idx");
+        assertThat(queryString("SELECT to_regclass('public.processed_booking_events')::text"))
+                .isEqualTo("processed_booking_events");
+        assertThat(queryString("SELECT to_regclass('public.refunds_one_per_payment_idx')::text"))
+                .isEqualTo("refunds_one_per_payment_idx");
     }
 
     @Test
@@ -70,7 +74,7 @@ class PaymentSchemaMigrationTest {
         flyway.baseline();
         MigrateResult result = flyway.migrate();
 
-        assertThat(result.migrationsExecuted).isEqualTo(1);
+        assertThat(result.migrationsExecuted).isEqualTo(2);
         assertThat(queryLong("SELECT count(*) FROM payments")).isEqualTo(2);
         assertThat(paymentDigest()).isEqualTo(digestBefore);
         assertThat(queryLong("SELECT count(*) FROM payments WHERE id IN ('" + initiatedPaymentId + "', '"
@@ -78,6 +82,8 @@ class PaymentSchemaMigrationTest {
         assertThat(queryLong("SELECT count(*) FROM flyway_schema_history WHERE type = 'BASELINE' AND version = '1' AND success"))
                 .isEqualTo(1);
         assertThat(queryLong("SELECT count(*) FROM flyway_schema_history WHERE version = '2' AND success"))
+                .isEqualTo(1);
+        assertThat(queryLong("SELECT count(*) FROM flyway_schema_history WHERE version = '3' AND success"))
                 .isEqualTo(1);
     }
 
@@ -120,6 +126,27 @@ class PaymentSchemaMigrationTest {
         assertThat(queryLong("SELECT count(*) FROM payments")).isEqualTo(2);
         assertThat(paymentDigest()).isEqualTo(digestBefore);
         assertThat(queryLong("SELECT count(*) FROM flyway_schema_history WHERE version = '2' AND success"))
+                .isZero();
+    }
+
+    @Test
+    void duplicateLegacyRefunds_failV3WithoutDeletingHistoricalRows() throws Exception {
+        installLegacyV1Schema();
+        UUID paymentId = insertLegacyPayment(UUID.randomUUID(), "SUCCESS", "REFUND_DUPLICATE_FIXTURE");
+        insertLegacyRefund(paymentId, 50);
+        insertLegacyRefund(paymentId, 50);
+        Flyway flyway = flyway();
+        flyway.baseline();
+
+        assertThatThrownBy(flyway::migrate)
+                .isInstanceOf(FlywayException.class)
+                .hasMessageContaining("duplicate refunds exist for the same payment");
+
+        assertThat(queryLong("SELECT count(*) FROM refunds WHERE payment_id = '" + paymentId + "'"))
+                .isEqualTo(2);
+        assertThat(queryString("SELECT to_regclass('public.processed_booking_events')::text")).isNull();
+        assertThat(queryString("SELECT to_regclass('public.refunds_one_per_payment_idx')::text")).isNull();
+        assertThat(queryLong("SELECT count(*) FROM flyway_schema_history WHERE version = '3' AND success"))
                 .isZero();
     }
 
@@ -175,6 +202,21 @@ class PaymentSchemaMigrationTest {
             statement.executeUpdate();
         }
         return paymentId;
+    }
+
+    private void insertLegacyRefund(UUID paymentId, int percentage) throws Exception {
+        try (Connection connection = connection(); PreparedStatement statement = connection.prepareStatement("""
+                INSERT INTO refunds (
+                    id, amount, completed_at, created_at, gateway_refund_ref,
+                    payment_id, percentage, status
+                ) VALUES (?, 625000.00, NULL, ?, NULL, ?, ?, 'PENDING')
+                """)) {
+            statement.setObject(1, UUID.randomUUID());
+            statement.setObject(2, OffsetDateTime.now(ZoneOffset.UTC));
+            statement.setObject(3, paymentId);
+            statement.setInt(4, percentage);
+            statement.executeUpdate();
+        }
     }
 
     private String paymentDigest() throws Exception {
