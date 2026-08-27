@@ -28,6 +28,8 @@ public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
             "/v1/auth/google/**",
             "/v1/tours",
             "/v1/tours/**",
+            "/v1/ai/ping",
+            "/v1/ai/shared/**",
             "/actuator/**",
             "/v1/payments/webhooks/**",
             "/v1/payments/vnpay-return"

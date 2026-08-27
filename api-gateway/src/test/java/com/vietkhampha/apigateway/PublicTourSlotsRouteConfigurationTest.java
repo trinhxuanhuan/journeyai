@@ -40,6 +40,33 @@ class PublicTourSlotsRouteConfigurationTest {
         );
     }
 
+    @Test
+    void publicTourDeparturesRoute_targetsBookingServiceWithHigherPriorityThanTourService() throws IOException {
+        List<PropertySource<?>> propertySources = new YamlPropertySourceLoader()
+                .load("gateway-configuration", new ClassPathResource("application.yml"));
+        PropertySource<?> properties = propertySources.get(0);
+
+        int publicDeparturesRouteIndex = findRouteIndex(properties, "booking-service-public-tour-departures");
+        int tourServiceRouteIndex = findRouteIndex(properties, "tour-service");
+
+        assertEquals(
+                "http://booking-service:8080",
+                properties.getProperty(routeProperty(publicDeparturesRouteIndex, "uri"))
+        );
+        assertEquals(
+                -1,
+                properties.getProperty(routeProperty(publicDeparturesRouteIndex, "order"))
+        );
+        assertEquals(
+                "Path=/v1/tours/*/departures",
+                properties.getProperty(routeProperty(publicDeparturesRouteIndex, "predicates[0]"))
+        );
+        assertTrue(
+                routeOrder(properties, publicDeparturesRouteIndex) < routeOrder(properties, tourServiceRouteIndex),
+                "Public departure route must be evaluated before the generic tour route"
+        );
+    }
+
     private int findRouteIndex(PropertySource<?> properties, String routeId) {
         for (int index = 0; index < 50; index++) {
             Object configuredRouteId = properties.getProperty(routeProperty(index, "id"));
