@@ -16,6 +16,7 @@ public class TourGuide {
     private Integer yearsOfExperience;
     private String avatarUrl;
     private String authUserId;
+    private boolean active = true;
 
     private Instant createdAt = Instant.now();
 
@@ -35,5 +36,8 @@ public class TourGuide {
     public Integer getYearsOfExperience() { return yearsOfExperience; }
     public String getAvatarUrl() { return avatarUrl; }
     public String getAuthUserId() { return authUserId; }
+    public boolean isActive() { return active; }
     public Instant getCreatedAt() { return createdAt; }
+
+    public void deactivate() { this.active = false; }
 }

@@ -10,6 +10,7 @@ public record TourGuideResponse(
         String bio,
         Integer yearsOfExperience,
         String avatarUrl,
+        boolean active,
         Instant createdAt
 ) {
     public static TourGuideResponse from(TourGuide guide) {
@@ -19,6 +20,7 @@ public record TourGuideResponse(
                 guide.getBio(),
                 guide.getYearsOfExperience(),
                 guide.getAvatarUrl(),
+                guide.isActive(),
                 guide.getCreatedAt()
         );
     }

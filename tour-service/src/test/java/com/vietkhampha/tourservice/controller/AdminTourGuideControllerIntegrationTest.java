@@ -172,6 +172,85 @@ class AdminTourGuideControllerIntegrationTest {
         assertThat(tourRepository.count()).isZero();
     }
 
+    @Test
+    void createsPrivatePackageTourWithStructuredCommercialPolicy() throws Exception {
+        mockMvc.perform(post("/v1/admin/tours")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "name": "TP.HCM - Đà Lạt riêng 3N2Đ",
+                                  "description": "Hành trình riêng cho gia đình",
+                                  "destination": {
+                                    "province": "Lâm Đồng",
+                                    "geo": { "lat": 11.9404, "lng": 108.4583 }
+                                  },
+                                  "basePrice": 7800000,
+                                  "tourType": "PRIVATE",
+                                  "priceModel": "PER_GROUP",
+                                  "departureLocation": "TP.HCM",
+                                  "meetingPoint": "Nhà Văn hóa Thanh Niên",
+                                  "meetingTime": "06:30:00",
+                                  "minGroupSize": 2,
+                                  "maxGroupSize": 8,
+                                  "guideMode": "OPTIONAL",
+                                  "optionalGuidePrice": 900000,
+                                  "durationDays": 3,
+                                  "durationNights": 2,
+                                  "included": ["Xe riêng", "Khách sạn 2 đêm"],
+                                  "excluded": ["Chi tiêu cá nhân"],
+                                  "packageDetails": {
+                                    "accommodation": ["Khách sạn 3 sao"],
+                                    "transport": ["Xe du lịch riêng"],
+                                    "meals": ["2 bữa sáng"],
+                                    "tickets": ["Vé điểm tham quan trong chương trình"],
+                                    "insurance": ["Bảo hiểm du lịch nội địa"]
+                                  },
+                                  "childPolicy": {
+                                    "description": "Trẻ em tính 60% giá người lớn",
+                                    "pricePercentage": 60
+                                  },
+                                  "singleRoomSupplement": 650000,
+                                  "cancellationPolicy": [
+                                    {"minimumDaysBeforeDeparture": 0, "refundPercentage": 0},
+                                    {"minimumDaysBeforeDeparture": 7, "refundPercentage": 100}
+                                  ],
+                                  "itinerary": [
+                                    {"dayNumber": 1, "title": "Đến Đà Lạt", "activities": [{"time": "06:30", "description": "Khởi hành"}]},
+                                    {"dayNumber": 2, "title": "Văn hóa cao nguyên", "activities": [{"time": "08:00", "description": "Tham quan"}]},
+                                    {"dayNumber": 3, "title": "Trở về", "activities": [{"time": "09:00", "description": "Mua đặc sản"}]}
+                                  ]
+                                }
+                                """))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.tourType").value("PRIVATE"))
+                .andExpect(jsonPath("$.priceModel").value("PER_GROUP"))
+                .andExpect(jsonPath("$.departureLocation").value("TP.HCM"))
+                .andExpect(jsonPath("$.guideMode").value("OPTIONAL"))
+                .andExpect(jsonPath("$.durationDays").value(3))
+                .andExpect(jsonPath("$.durationNights").value(2))
+                .andExpect(jsonPath("$.packageDetails.accommodation[0]").value("Khách sạn 3 sao"))
+                .andExpect(jsonPath("$.cancellationPolicy[0].minimumDaysBeforeDeparture").value(7));
+
+        assertThat(tourRepository.count()).isEqualTo(1);
+        assertThat(tourRepository.findAll().get(0).getTourGuideId()).isNull();
+    }
+
+    @Test
+    void rejectsPerGroupPricingForSharedGroupTour() throws Exception {
+        String request = validTourRequest(null).replace(
+                "\"basePrice\":1500000",
+                "\"basePrice\":1500000,\"tourType\":\"GROUP\",\"priceModel\":\"PER_GROUP\""
+        );
+
+        mockMvc.perform(post("/v1/admin/tours")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(request))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("TOUR_CONFIGURATION_INVALID"));
+
+        assertThat(tourRepository.count()).isZero();
+    }
+
     private String validTourRequest(String guideId) throws Exception {
         JsonNode request = objectMapper.readTree("""
                 {
@@ -193,7 +272,9 @@ class AdminTourGuideControllerIntegrationTest {
                   ]
                 }
                 """);
-        ((com.fasterxml.jackson.databind.node.ObjectNode) request).put("tourGuideId", guideId);
+        if (guideId != null) {
+            ((com.fasterxml.jackson.databind.node.ObjectNode) request).put("tourGuideId", guideId);
+        }
         return objectMapper.writeValueAsString(request);
     }
 }

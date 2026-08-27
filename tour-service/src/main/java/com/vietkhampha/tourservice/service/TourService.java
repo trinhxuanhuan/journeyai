@@ -11,6 +11,9 @@ import com.vietkhampha.tourservice.repository.TourRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -29,7 +32,8 @@ public class TourService {
     }
 
     public TourResponse createTour(TourRequest request) {
-        validateTourGuideExists(request.getTourGuideId());
+        validateLegacyTourGuideIfPresent(request.getTourGuideId());
+        TourConfiguration config = resolveConfiguration(request);
 
         Tour tour = new Tour(
                 request.getName(),
@@ -38,6 +42,23 @@ public class TourService {
                 request.getCoverImageUrl(),
                 request.getImages(),
                 request.getBasePrice(),
+                config.tourType(),
+                config.priceModel(),
+                config.departureLocation(),
+                config.meetingPoint(),
+                request.getMeetingTime(),
+                config.minGroupSize(),
+                config.maxGroupSize(),
+                config.guideMode(),
+                config.optionalGuidePrice(),
+                config.durationDays(),
+                config.durationNights(),
+                request.getIncluded(),
+                request.getExcluded(),
+                toPackageDetails(request.getPackageDetails()),
+                toChildPolicy(request.getChildPolicy()),
+                defaultMoney(request.getSingleRoomSupplement()),
+                toCancellationPolicy(request.getCancellationPolicy()),
                 request.getTourGuideId(),
                 toItinerary(request.getItinerary())
         );
@@ -49,7 +70,8 @@ public class TourService {
     }
 
     public TourResponse updateTour(String tourId, TourRequest request) {
-        validateTourGuideExists(request.getTourGuideId());
+        validateLegacyTourGuideIfPresent(request.getTourGuideId());
+        TourConfiguration config = resolveConfiguration(request);
 
         Tour tour = findTourOrThrow(tourId);
         tour.applyUpdate(
@@ -59,6 +81,23 @@ public class TourService {
                 request.getCoverImageUrl(),
                 request.getImages(),
                 request.getBasePrice(),
+                config.tourType(),
+                config.priceModel(),
+                config.departureLocation(),
+                config.meetingPoint(),
+                request.getMeetingTime(),
+                config.minGroupSize(),
+                config.maxGroupSize(),
+                config.guideMode(),
+                config.optionalGuidePrice(),
+                config.durationDays(),
+                config.durationNights(),
+                request.getIncluded(),
+                request.getExcluded(),
+                toPackageDetails(request.getPackageDetails()),
+                toChildPolicy(request.getChildPolicy()),
+                defaultMoney(request.getSingleRoomSupplement()),
+                toCancellationPolicy(request.getCancellationPolicy()),
                 request.getTourGuideId(),
                 toItinerary(request.getItinerary())
         );
@@ -87,10 +126,98 @@ public class TourService {
         return TourResponse.from(findTourOrThrow(tourId));
     }
 
-    private void validateTourGuideExists(String tourGuideId) {
-        if (!tourGuideRepository.existsById(tourGuideId)) {
+    public List<TourResponse> listToursForAdmin() {
+        return tourRepository.findAll().stream().map(TourResponse::from).toList();
+    }
+
+    private void validateLegacyTourGuideIfPresent(String tourGuideId) {
+        if (tourGuideId != null && !tourGuideId.isBlank() && !tourGuideRepository.existsById(tourGuideId)) {
             throw new BusinessException(ErrorCode.TOUR_GUIDE_NOT_FOUND);
         }
+    }
+
+    private TourConfiguration resolveConfiguration(TourRequest request) {
+        Tour.TourType tourType = request.getTourType() == null ? Tour.TourType.GROUP : request.getTourType();
+        Tour.PriceModel priceModel = request.getPriceModel() == null
+                ? Tour.PriceModel.PER_PERSON
+                : request.getPriceModel();
+        Tour.GuideMode guideMode = request.getGuideMode() == null
+                ? (tourType == Tour.TourType.GROUP ? Tour.GuideMode.INCLUDED : Tour.GuideMode.NONE)
+                : request.getGuideMode();
+
+        if (tourType == Tour.TourType.GROUP
+                && (priceModel != Tour.PriceModel.PER_PERSON || guideMode != Tour.GuideMode.INCLUDED)) {
+            throw new BusinessException(ErrorCode.TOUR_CONFIGURATION_INVALID);
+        }
+
+        int minGroupSize = request.getMinGroupSize() == null ? 1 : request.getMinGroupSize();
+        int maxGroupSize = request.getMaxGroupSize() == null
+                ? (tourType == Tour.TourType.GROUP ? 30 : 20)
+                : request.getMaxGroupSize();
+        if (minGroupSize > maxGroupSize) {
+            throw new BusinessException(ErrorCode.TOUR_CONFIGURATION_INVALID);
+        }
+
+        int itineraryDays = request.getItinerary() == null ? 1 : Math.max(1, request.getItinerary().size());
+        int durationDays = request.getDurationDays() == null ? itineraryDays : request.getDurationDays();
+        int durationNights = request.getDurationNights() == null
+                ? Math.max(0, durationDays - 1)
+                : request.getDurationNights();
+        if (durationNights > Math.max(0, durationDays - 1)) {
+            throw new BusinessException(ErrorCode.TOUR_CONFIGURATION_INVALID);
+        }
+
+        String departureLocation = normalizeOrDefault(
+                request.getDepartureLocation(),
+                request.getDestination().getProvince()
+        );
+        String meetingPoint = normalizeOrDefault(request.getMeetingPoint(), departureLocation);
+
+        return new TourConfiguration(
+                tourType,
+                priceModel,
+                departureLocation,
+                meetingPoint,
+                minGroupSize,
+                maxGroupSize,
+                guideMode,
+                defaultMoney(request.getOptionalGuidePrice()),
+                durationDays,
+                durationNights
+        );
+    }
+
+    private Tour.PackageDetails toPackageDetails(TourRequest.PackageDetailsDto dto) {
+        if (dto == null) return new Tour.PackageDetails();
+        return new Tour.PackageDetails(
+                dto.getAccommodation(), dto.getTransport(), dto.getMeals(), dto.getTickets(), dto.getInsurance()
+        );
+    }
+
+    private Tour.ChildPolicy toChildPolicy(TourRequest.ChildPolicyDto dto) {
+        if (dto == null) return new Tour.ChildPolicy();
+        String description = normalizeOrDefault(dto.getDescription(), "Tre em tinh theo ty le gia nguoi lon");
+        BigDecimal percentage = dto.getPricePercentage() == null ? BigDecimal.valueOf(75) : dto.getPricePercentage();
+        return new Tour.ChildPolicy(description, percentage);
+    }
+
+    private List<Tour.CancellationRule> toCancellationPolicy(List<TourRequest.CancellationRuleDto> rules) {
+        if (rules == null || rules.isEmpty()) return Tour.defaultCancellationPolicy();
+        List<Tour.CancellationRule> mapped = new ArrayList<>(rules.stream()
+                .map(rule -> new Tour.CancellationRule(
+                        rule.getMinimumDaysBeforeDeparture(), rule.getRefundPercentage()
+                ))
+                .toList());
+        mapped.sort(Comparator.comparingInt(Tour.CancellationRule::getMinimumDaysBeforeDeparture).reversed());
+        return mapped;
+    }
+
+    private BigDecimal defaultMoney(BigDecimal value) {
+        return value == null ? BigDecimal.ZERO : value;
+    }
+
+    private String normalizeOrDefault(String value, String fallback) {
+        return value == null || value.isBlank() ? fallback : value.trim();
     }
 
     private Tour findTourOrThrow(String tourId) {
@@ -113,4 +240,17 @@ public class TourService {
                 )).collect(Collectors.toList())
         )).collect(Collectors.toList());
     }
+
+    private record TourConfiguration(
+            Tour.TourType tourType,
+            Tour.PriceModel priceModel,
+            String departureLocation,
+            String meetingPoint,
+            int minGroupSize,
+            int maxGroupSize,
+            Tour.GuideMode guideMode,
+            BigDecimal optionalGuidePrice,
+            int durationDays,
+            int durationNights
+    ) {}
 }

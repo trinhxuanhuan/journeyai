@@ -29,6 +29,7 @@ public class TourController {
             @RequestParam(required = false) BigDecimal maxPrice,
             @RequestParam(required = false) String fromDate,
             @RequestParam(required = false) String toDate,
+            @RequestParam(required = false) String tourType,
             @RequestParam(required = false) Double lat,
             @RequestParam(required = false) Double lng,
             @RequestParam(required = false) Double radiusKm,
@@ -37,7 +38,8 @@ public class TourController {
             @RequestParam(defaultValue = "20") int size
     ) {
         return ResponseEntity.ok(
-                tourSearchService.search(q, destination, minPrice, maxPrice, lat, lng, radiusKm, sortBy, page, size)
+                tourSearchService.search(q, destination, minPrice, maxPrice, fromDate, toDate, tourType,
+                        lat, lng, radiusKm, sortBy, page, size)
         );
     }
 

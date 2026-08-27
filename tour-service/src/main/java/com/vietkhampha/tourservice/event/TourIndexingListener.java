@@ -42,7 +42,15 @@ public class TourIndexingListener {
             return;
         }
 
-        Tour tour = tourOpt.get();
+        indexTour(tourOpt.get());
+    }
+
+    public void reindexAll() {
+        tourRepository.findAll().forEach(this::indexTour);
+    }
+
+    private void indexTour(Tour tour) {
+        String tourId = tour.getId();
         GeoPoint geoPoint = new GeoPoint(
                 tour.getDestination().getGeo().getLat(),
                 tour.getDestination().getGeo().getLng()
@@ -57,7 +65,15 @@ public class TourIndexingListener {
                 tour.getBasePrice(),
                 tour.getCoverImageUrl(),
                 tour.getAvgRating(),
-                tour.getStatus().name()
+                tour.getStatus().name(),
+                tour.getTourType().name(),
+                tour.getDepartureLocation()
+        );
+
+        tourSearchRepository.findById(tourId).ifPresent(existing ->
+                existing.getAvailableDepartures().forEach(departure ->
+                        doc.applyDeparture(departure.getDepartureId(), departure.getStartDate(), true)
+                )
         );
 
         tourSearchRepository.save(doc);
