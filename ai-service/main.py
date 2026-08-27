@@ -1,20 +1,21 @@
-"""
-AI Recommendation Service — khung sườn Sprint 0 (T-000-1b).
+"""AI Itinerary Service độc lập cho MVP Việt Khám Phá."""
 
-Chưa có logic nghiệp vụ (Pipeline 1/2 sẽ triển khai ở Sprint 7-8 theo
-PRODUCT_BACKLOG.md). Mục tiêu Sprint 0: xác nhận service build/chạy được
-trong Docker Compose, kết nối MongoDB + Redis thành công.
-
-Base path "/v1/ai" khớp đúng API_CONTRACT.md §8.
-"""
-
+from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 
 from fastapi import FastAPI
 
-from app.config import settings
+from app.itineraries import ensure_indexes, router as itineraries_router
 
-app = FastAPI(title="JourneyAI — AI Recommendation Service", version="0.1.0")
+
+@asynccontextmanager
+async def lifespan(_: FastAPI):
+    await ensure_indexes()
+    yield
+
+
+app = FastAPI(title="Việt Khám Phá — AI Itinerary Service", version="0.1.0", lifespan=lifespan)
+app.include_router(itineraries_router)
 
 
 @app.get("/v1/ai/ping")
