@@ -16,10 +16,11 @@ public interface BookingRepository extends JpaRepository<Booking, UUID> {
     Page<Booking> findByCustomerId(UUID customerId, Pageable pageable);
 
     List<Booking> findByStatusAndHoldExpiresAtBefore(Booking.Status status, Instant now);
+    List<Booking> findByTourSlotId(UUID tourSlotId);
     @Query("""
-        SELECT b FROM Booking b JOIN TourSlot s ON b.tourSlotId = s.id
-        WHERE (:tourId IS NULL OR s.tourId = :tourId)
-        AND (:departureDate IS NULL OR s.departureDate = :departureDate)
+        SELECT b FROM Booking b
+        WHERE (:tourId IS NULL OR b.tourId = :tourId)
+        AND (:departureDate IS NULL OR b.startDate = :departureDate)
         AND (:status IS NULL OR b.status = :status)
         ORDER BY b.createdAt DESC
         """)

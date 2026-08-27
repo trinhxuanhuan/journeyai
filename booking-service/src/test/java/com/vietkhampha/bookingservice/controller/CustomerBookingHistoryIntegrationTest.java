@@ -6,6 +6,7 @@ import com.vietkhampha.bookingservice.entity.Booking;
 import com.vietkhampha.bookingservice.entity.TourSlot;
 import com.vietkhampha.bookingservice.outbox.OutboxPoller;
 import com.vietkhampha.bookingservice.repository.BookingRepository;
+import com.vietkhampha.bookingservice.repository.OutboxEventRepository;
 import com.vietkhampha.bookingservice.repository.TourSlotRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -59,6 +60,9 @@ class CustomerBookingHistoryIntegrationTest {
     private BookingRepository bookingRepository;
 
     @Autowired
+    private OutboxEventRepository outboxEventRepository;
+
+    @Autowired
     private TourSlotRepository tourSlotRepository;
 
     @Autowired
@@ -82,7 +86,7 @@ class CustomerBookingHistoryIntegrationTest {
                     tour_slots
                 """);
         slot = tourSlotRepository.saveAndFlush(
-                new TourSlot("customer-history-tour", LocalDate.of(2026, 12, 20), 20)
+                new TourSlot("customer-history-tour", LocalDate.now().plusDays(30), 20)
         );
     }
 
@@ -137,8 +141,70 @@ class CustomerBookingHistoryIntegrationTest {
         assertThat(oversizedPage.path("error").asText()).isEqualTo("PAGINATION_INVALID");
     }
 
+    @Test
+    void cancellationUsesBookingPolicySnapshot_andReleasesGroupSeats() throws Exception {
+        UUID customerId = UUID.randomUUID();
+        slot.reserve(2);
+        tourSlotRepository.saveAndFlush(slot);
+        Booking booking = new Booking(
+                customerId,
+                slot.getTourId(),
+                Booking.BookingType.GROUP,
+                slot.getId(),
+                slot.getDepartureDate(),
+                slot.getEndDate(),
+                2,
+                Booking.PriceModel.PER_PERSON,
+                TOTAL_AMOUNT.divide(BigDecimal.valueOf(2)),
+                TOTAL_AMOUNT,
+                "{}",
+                "[{\"minimumDaysBeforeDeparture\":7,\"refundPercentage\":80},"
+                        + "{\"minimumDaysBeforeDeparture\":0,\"refundPercentage\":10}]",
+                false,
+                0
+        );
+        booking.setStatus(Booking.Status.CONFIRMED);
+        Booking saved = bookingRepository.saveAndFlush(booking);
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.set("X-User-Id", customerId.toString());
+        ResponseEntity<Void> response = restTemplate.exchange(
+                "/v1/bookings/{id}/cancel",
+                HttpMethod.POST,
+                new HttpEntity<>(headers),
+                Void.class,
+                saved.getId()
+        );
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
+        assertThat(bookingRepository.findById(saved.getId()).orElseThrow().getStatus())
+                .isEqualTo(Booking.Status.CANCELLED);
+        assertThat(tourSlotRepository.findById(slot.getId()).orElseThrow().getBookedCount()).isZero();
+        var cancelledEvent = outboxEventRepository.findAll().stream()
+                .filter(event -> "booking.cancelled".equals(event.getEventType()))
+                .findFirst().orElseThrow();
+        JsonNode payload = objectMapper.readTree(cancelledEvent.getPayload());
+        assertThat(payload.path("refundPercentage").asInt()).isEqualTo(80);
+        assertThat(payload.path("refundEligible").asBoolean()).isTrue();
+    }
+
     private Booking createBooking(UUID customerId, Booking.Status status, Instant createdAt) {
-        Booking booking = new Booking(customerId, slot.getId(), 2, TOTAL_AMOUNT);
+        Booking booking = new Booking(
+                customerId,
+                slot.getTourId(),
+                Booking.BookingType.GROUP,
+                slot.getId(),
+                slot.getDepartureDate(),
+                slot.getEndDate(),
+                2,
+                Booking.PriceModel.PER_PERSON,
+                TOTAL_AMOUNT.divide(BigDecimal.valueOf(2)),
+                TOTAL_AMOUNT,
+                "{}",
+                "[{\"minimumDaysBeforeDeparture\":0,\"refundPercentage\":0}]",
+                false,
+                0
+        );
         if (status != Booking.Status.PENDING) {
             booking.setStatus(status);
         }

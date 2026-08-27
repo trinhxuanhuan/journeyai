@@ -18,17 +18,42 @@ import java.util.UUID;
 @Component
 public class BookingRequestHasher {
 
-    public static final String HASH_VERSION = "SHA256_V1";
+    public static final String HASH_VERSION = "SHA256_V2";
+    public static final String LEGACY_HASH_VERSION = "SHA256_V1";
     private static final String OPERATION = "POST:/v1/bookings";
 
     public String hash(UUID customerId, CreateBookingRequest request) {
+        return hash(customerId, request, HASH_VERSION);
+    }
+
+    public String hashForVersion(UUID customerId, CreateBookingRequest request, String hashVersion) {
+        if (LEGACY_HASH_VERSION.equals(hashVersion)) {
+            return hash(customerId, request, LEGACY_HASH_VERSION);
+        }
+        if (HASH_VERSION.equals(hashVersion)) {
+            return hash(customerId, request, HASH_VERSION);
+        }
+        return null;
+    }
+
+    private String hash(UUID customerId, CreateBookingRequest request, String hashVersion) {
         MessageDigest digest = sha256();
 
-        append(digest, HASH_VERSION);
+        append(digest, hashVersion);
         append(digest, OPERATION);
         append(digest, customerId.toString());
         append(digest, request.getTourSlotId() == null ? null : request.getTourSlotId().toString());
-        append(digest, normalize(request.getGeneratedItineraryId()));
+
+        if (LEGACY_HASH_VERSION.equals(hashVersion)) {
+            append(digest, normalize(request.getGeneratedItineraryId()));
+        } else {
+            append(digest, normalize(request.getTourId()));
+            append(digest, request.getRequestedStartDate() == null
+                    ? null
+                    : request.getRequestedStartDate().toString());
+            append(digest, Boolean.toString(request.isGuideOptionSelected()));
+            append(digest, Integer.toString(request.getSingleRoomCount()));
+        }
 
         List<CanonicalParticipant> participants = canonicalParticipants(request.getParticipants());
         append(digest, Integer.toString(participants.size()));
@@ -36,6 +61,9 @@ public class BookingRequestHasher {
             append(digest, participant.fullName());
             append(digest, participant.phone());
             append(digest, Boolean.toString(participant.primaryContact()));
+            if (HASH_VERSION.equals(hashVersion)) {
+                append(digest, participant.participantType());
+            }
         }
 
         return HexFormat.of().formatHex(digest.digest());
@@ -51,7 +79,8 @@ public class BookingRequestHasher {
             canonicalParticipants.add(new CanonicalParticipant(
                     normalize(participant.getFullName()),
                     normalize(participant.getPhone()),
-                    participant.isPrimaryContact()
+                    participant.isPrimaryContact(),
+                    participant.getParticipantType().name()
             ));
         }
 
@@ -59,6 +88,7 @@ public class BookingRequestHasher {
                 Comparator.comparing(CanonicalParticipant::fullName, Comparator.nullsFirst(String::compareTo))
                         .thenComparing(CanonicalParticipant::phone, Comparator.nullsFirst(String::compareTo))
                         .thenComparing(CanonicalParticipant::primaryContact)
+                        .thenComparing(CanonicalParticipant::participantType)
         );
         return canonicalParticipants;
     }
@@ -87,6 +117,7 @@ public class BookingRequestHasher {
         }
     }
 
-    private record CanonicalParticipant(String fullName, String phone, boolean primaryContact) {
+    private record CanonicalParticipant(String fullName, String phone, boolean primaryContact,
+                                        String participantType) {
     }
 }

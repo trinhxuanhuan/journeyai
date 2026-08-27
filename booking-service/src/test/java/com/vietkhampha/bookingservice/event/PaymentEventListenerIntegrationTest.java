@@ -84,9 +84,19 @@ class PaymentEventListenerIntegrationTest {
         slot = tourSlotRepository.saveAndFlush(newSlot);
         booking = bookingRepository.saveAndFlush(new Booking(
                 UUID.randomUUID(),
+                slot.getTourId(),
+                Booking.BookingType.GROUP,
                 slot.getId(),
+                slot.getDepartureDate(),
+                slot.getEndDate(),
                 PARTICIPANT_COUNT,
-                BOOKING_AMOUNT
+                Booking.PriceModel.PER_PERSON,
+                BOOKING_AMOUNT.divide(BigDecimal.valueOf(PARTICIPANT_COUNT)),
+                BOOKING_AMOUNT,
+                "{}",
+                "[{\"minimumDaysBeforeDeparture\":0,\"refundPercentage\":0}]",
+                false,
+                0
         ));
     }
 

@@ -43,14 +43,14 @@ class BookingRequestHasherTest {
     }
 
     @Test
-    void nullAndEmptyStringsProduceDifferentHashes() {
+    void deprecatedItineraryIsIgnored_butNullAndEmptyParticipantPhoneRemainDifferent() {
         CreateBookingRequest nullItinerary = request(null, participant("Synthetic Traveler", null, true));
         CreateBookingRequest emptyItinerary = request("", participant("Synthetic Traveler", null, true));
         CreateBookingRequest nullPhone = request("fixture-itinerary", participant("Synthetic Traveler", null, true));
         CreateBookingRequest emptyPhone = request("fixture-itinerary", participant("Synthetic Traveler", "", true));
 
         assertAll(
-                () -> assertNotEquals(hash(nullItinerary), hash(emptyItinerary)),
+                () -> assertEquals(hash(nullItinerary), hash(emptyItinerary)),
                 () -> assertNotEquals(hash(nullPhone), hash(emptyPhone))
         );
     }
@@ -87,7 +87,7 @@ class BookingRequestHasherTest {
                                 participant("Synthetic Traveler", "0000000004", true)
                         ))
                 ),
-                () -> assertNotEquals(
+                () -> assertEquals(
                         baselineHash,
                         hash(request("changed-itinerary", participant("Synthetic Traveler", "0000000004", true)))
                 ),
@@ -121,17 +121,18 @@ class BookingRequestHasherTest {
     }
 
     @Test
-    void fixedInputMatchesSha256V1GoldenVector() {
+    void legacyReplayStillMatchesSha256V1GoldenVector() {
         CreateBookingRequest request = request(
                 "fixture-itinerary-01",
                 participant("Synthetic Traveler Beta", null, false),
                 participant("Synthetic Traveler Alpha", "0000000001", true)
         );
 
-        assertEquals("SHA256_V1", BookingRequestHasher.HASH_VERSION);
+        assertEquals("SHA256_V2", BookingRequestHasher.HASH_VERSION);
+        assertEquals("SHA256_V1", BookingRequestHasher.LEGACY_HASH_VERSION);
         assertEquals(
                 "b121b50a65f7a2a85f14b46257dda625ca6b5bd34c9914a69d604af87125cd47",
-                hash(request)
+                hasher.hashForVersion(CUSTOMER_ID, request, BookingRequestHasher.LEGACY_HASH_VERSION)
         );
     }
 

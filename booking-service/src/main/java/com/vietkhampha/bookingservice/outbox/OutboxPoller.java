@@ -46,6 +46,7 @@ public class OutboxPoller {
         for (OutboxEvent event : pending) {
             try {
                 Map<String, Object> message = new LinkedHashMap<>();
+                message.put("eventId", event.getId().toString());
                 message.put("eventType", event.getEventType());
                 message.put("aggregateId", event.getAggregateId().toString());
                 message.put("occurredAt", event.getCreatedAt().toString());
