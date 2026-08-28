@@ -28,15 +28,15 @@ public class EmailService {
 
     public void sendOtpEmail(String toEmail, String otpCode) {
         if (!emailEnabled) {
-            log.info("[DEV MODE - EMAIL_ENABLED=false] Ma OTP cho {}: {}", toEmail, otpCode);
+            log.info("[DEV MODE - EMAIL_ENABLED=false] Mã OTP cho {}: {}", toEmail, otpCode);
             return;
         }
 
         SimpleMailMessage message = new SimpleMailMessage();
         message.setFrom(fromAddress);
         message.setTo(toEmail);
-        message.setSubject("Ma xac thuc tai khoan Viet Kham Pha");
-        message.setText("Ma OTP cua ban la: " + otpCode + "\nMa co hieu luc trong 5 phut.");
+        message.setSubject("Mã xác thực tài khoản Việt Khám Phá");
+        message.setText("Mã OTP của bạn là: " + otpCode + "\nMã có hiệu lực trong 5 phút.");
         mailSender.send(message);
     }
 }

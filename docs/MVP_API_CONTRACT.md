@@ -195,6 +195,58 @@ Field `generatedItineraryId` trong request cũ được bỏ qua/deprecated. AI 
 
 Cancellation event được xử lý qua inbox idempotent; bảng refund chỉ cho phép một refund trên mỗi payment. Không gọi API hoàn tiền từ FE.
 
+## Notification
+
+Notification thuộc `notification-service` độc lập; mọi API đều yêu cầu JWT và chỉ truy cập dữ liệu của `X-User-Id`
+do Gateway tin cậy tạo ra. Booking/Payment vẫn là nguồn sự thật; Notification chỉ lưu nội dung snapshot
+để việc sửa Tour hoặc Booking sau đó không làm đổi thông báo đã gửi.
+
+| Method | Path | Quyền | Ý nghĩa |
+|---|---|---|---|
+| `GET` | `/v1/notifications?status=ALL&page=0&size=20` | Customer | Danh sách thông báo; `status=ALL\|UNREAD\|READ`, `size` tối đa 100 |
+| `GET` | `/v1/notifications/unread-count` | Customer | Số thông báo chưa đọc |
+| `PATCH` | `/v1/notifications/{notificationId}/read` | Chủ thông báo | Đánh dấu đã đọc, gọi lặp vẫn an toàn |
+| `PATCH` | `/v1/notifications/read-all` | Customer | Đánh dấu toàn bộ đã đọc |
+| `GET` | `/v1/notifications/preferences` | Customer | Xem cấu hình nhận email |
+| `PATCH` | `/v1/notifications/preferences` | Customer | Bật/tắt email với `{ "emailEnabled": true }` |
+
+Response danh sách đại diện:
+
+```json
+{
+  "content": [
+    {
+      "id": "uuid",
+      "type": "BOOKING_CONFIRMED",
+      "category": "PAYMENT",
+      "title": "Đặt tour đã được xác nhận",
+      "message": "Thanh toán thành công...",
+      "actionUrl": "/bookings/uuid",
+      "referenceType": "BOOKING",
+      "referenceId": "uuid",
+      "read": false,
+      "readAt": null,
+      "createdAt": "2026-08-28T10:00:00Z"
+    }
+  ],
+  "page": 0,
+  "size": 20,
+  "totalElements": 1,
+  "totalPages": 1,
+  "unreadCount": 1
+}
+```
+
+Các event khách hàng quan tâm gồm giữ chỗ, xác nhận/thất bại/hết hạn/hủy Booking, xử lý thanh
+toán muộn, refund và nhắc khởi hành. Consumer dùng inbox có `eventId` để chống trùng và giữ event
+chưa đủ dữ liệu để retry. `payment.succeeded/failed` không tạo thêm thông báo riêng vì trạng thái
+Booking tương ứng là thông báo chuẩn, tránh gửi hai lần cho cùng một kết quả.
+
+Service giữ recipient snapshot riêng từ `user.registered`; preference vẫn có thể cập nhật an toàn nếu
+identity event đến muộn. Email chỉ tạo cho sự kiện quan trọng, tôn trọng preference và mặc định tắt ở local/CI. Delivery được
+lưu bền vững, retry có backoff và trạng thái cuối `SENT | SKIPPED | FAILED`; Kafka consumer không gửi
+SMTP trực tiếp. Nhắc khởi hành chạy theo múi giờ `Asia/Ho_Chi_Minh`, mặc định trước một ngày.
+
 ## AI itinerary độc lập
 
 | Method | Path | Quyền | Ý nghĩa |
@@ -254,4 +306,4 @@ Sau khi stack chạy, thực thi:
 ./scripts/smoke-be-mvp.ps1
 ```
 
-Script tạo dữ liệu có prefix `[SMOKE ...]`, kiểm tra toàn bộ luồng nhưng chỉ khởi tạo payment ở trạng thái `INITIATED`; không chuyển tiền và không gọi refund thật.
+Script tạo dữ liệu có prefix `[SMOKE ...]`, kiểm tra toàn bộ luồng và Notification qua Kafka nhưng chỉ khởi tạo payment ở trạng thái `INITIATED`; không chuyển tiền và không gọi refund thật.

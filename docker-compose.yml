@@ -124,6 +124,12 @@ services:
       REDIS_HOST: redis
       REDIS_PORT: 6379
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      EMAIL_ENABLED: ${EMAIL_ENABLED:-false}
+      SMTP_HOST: ${SMTP_HOST:-smtp.gmail.com}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USERNAME: ${SMTP_USERNAME:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_FROM: ${SMTP_FROM:-no-reply@vietkhampha.vn}
     expose:
       - "8080"
 
@@ -143,6 +149,39 @@ services:
       SPRING_DATASOURCE_USERNAME: journeyai
       SPRING_DATASOURCE_PASSWORD: journeyai_dev_password
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+    expose:
+      - "8080"
+
+  notification-service:
+    build:
+      context: .
+      dockerfile: notification-service/Dockerfile
+    container_name: jai-notification-service
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/notification_service_db
+      SPRING_DATASOURCE_USERNAME: journeyai
+      SPRING_DATASOURCE_PASSWORD: journeyai_dev_password
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      EMAIL_ENABLED: ${EMAIL_ENABLED:-false}
+      SMTP_HOST: ${SMTP_HOST:-smtp.gmail.com}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USERNAME: ${SMTP_USERNAME:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_FROM: ${SMTP_FROM:-no-reply@vietkhampha.vn}
+      FRONTEND_BASE_URL: ${FRONTEND_BASE_URL:-http://localhost:3000}
+      NOTIFICATION_EMAIL_DISPATCH_DELAY_MS: ${NOTIFICATION_EMAIL_DISPATCH_DELAY_MS:-5000}
+      NOTIFICATION_EMAIL_MAX_ATTEMPTS: ${NOTIFICATION_EMAIL_MAX_ATTEMPTS:-5}
+      NOTIFICATION_INBOX_RETRY_DELAY_MS: ${NOTIFICATION_INBOX_RETRY_DELAY_MS:-10000}
+      NOTIFICATION_INBOX_MAX_ATTEMPTS: ${NOTIFICATION_INBOX_MAX_ATTEMPTS:-10}
+      DEPARTURE_REMINDER_ENABLED: ${DEPARTURE_REMINDER_ENABLED:-true}
+      DEPARTURE_REMINDER_DAYS_BEFORE: ${DEPARTURE_REMINDER_DAYS_BEFORE:-1}
+      DEPARTURE_REMINDER_CRON: ${DEPARTURE_REMINDER_CRON:-0 0 8 * * *}
     expose:
       - "8080"
 
@@ -216,6 +255,7 @@ services:
     restart: unless-stopped
     depends_on:
       - auth-service
+      - notification-service
     environment:
       JWT_SIGNING_SECRET: ${JWT_SIGNING_SECRET:-dev_only_change_me}
     ports:

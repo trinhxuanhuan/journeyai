@@ -75,6 +75,11 @@ spring:
           predicates:
             - Path=/v1/users/**
 
+        - id: notification-service
+          uri: http://notification-service:8080
+          predicates:
+            - Path=/v1/notifications/**
+
         - id: booking-service-public-tour-slots
           uri: http://booking-service:8080
           order: -1

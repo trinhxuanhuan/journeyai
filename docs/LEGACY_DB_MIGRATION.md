@@ -47,6 +47,7 @@ Database trống không cần baseline override: Flyway tự chạy từ V1.
 - Booking V6 backfill Tour/ngày/giá/snapshot cho Booking cũ; migration dừng nếu phát hiện Booking mồ côi không có slot.
 - Participant cũ được backfill `ADULT`.
 - Payment V3 dừng nếu đã tồn tại nhiều refund cho cùng một payment trước khi tạo unique index.
+- Notification Service dùng database mới và chạy Flyway từ V1; không baseline vào `user_service_db`.
 - Tour MongoDB được backfill additive và idempotent khi service khởi động; `tourGuideId` cũ vẫn được giữ để chuyển đổi vận hành dần.
 
 Không chạy `flyway clean`, không xóa volume và không đổi tên vật lý bảng `tour_slots` trong giai đoạn MVP.

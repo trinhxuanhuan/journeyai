@@ -7,6 +7,7 @@ Backend cho nền tảng đặt Tour Việt Nam và gợi ý hành trình tự t
 - Tour ghép: `Tour -> Departure -> Booking -> Participants -> Payment`; capacity và HDV cụ thể thuộc từng Departure.
 - Tour riêng: một Booking là một đoàn riêng, giá `PER_PERSON` hoặc `PER_GROUP`, không dùng shared capacity; HDV có thể included/optional/none.
 - AI itinerary: planner grounded tạo/lưu/chỉnh sửa/chia sẻ lịch trình, kiểm tra lịch và dự toán; không phụ thuộc Tour/Booking.
+- Notification: service độc lập nhận sự kiện Auth/Booking/Payment qua Kafka, cung cấp hộp thư trong ứng dụng, tùy chọn email và nhắc khởi hành.
 - Các thành phần khách sạn, phòng, xe, bữa ăn, vé và bảo hiểm được lưu trong package Tour.
 
 Contract chi tiết: [docs/MVP_API_CONTRACT.md](docs/MVP_API_CONTRACT.md). Thiết kế và quality gates
@@ -17,11 +18,11 @@ của AI: [docs/AI_PLANNER_V1.md](docs/AI_PLANNER_V1.md). Thứ tự hoàn thi�
 
 - Java 17, Spring Boot, Spring Cloud Gateway
 - FastAPI cho AI service
-- PostgreSQL cho Auth/User/Booking/Payment
+- PostgreSQL cho Auth/User/Booking/Payment/Notification
 - MongoDB cho Tour và AI itinerary
 - Redis, Elasticsearch, Kafka/outbox, Zipkin
 
-Các module hiện có: `api-gateway`, `auth-service`, `user-service`, `tour-service`, `booking-service`, `payment-service`, `ai-service`.
+Các module hiện có: `api-gateway`, `auth-service`, `user-service`, `tour-service`, `booking-service`, `payment-service`, `notification-service`, `ai-service`.
 
 ## Chạy local
 
@@ -61,12 +62,13 @@ Smoke test xuyên service sau khi Docker stack đã chạy:
 ./scripts/smoke-be-mvp.ps1
 ```
 
-Smoke test tạo dữ liệu có prefix `[SMOKE ...]`, kiểm tra GROUP/PRIVATE, Departure capacity, pricing snapshot, idempotency, Payment `INITIATED` và AI itinerary sharing. Script không thực hiện giao dịch hoặc refund thật.
+Smoke test tạo dữ liệu có prefix `[SMOKE ...]`, kiểm tra GROUP/PRIVATE, Departure capacity, pricing snapshot, idempotency, Notification qua Kafka, Payment `INITIATED` và AI itinerary sharing. Script không thực hiện giao dịch hoặc refund thật.
 
 ## Migration hiện tại
 
 - Booking: `V1` baseline, `V2` status, `V3` idempotency, `V4` payment inbox, `V5` Departure, `V6` GROUP/PRIVATE + commercial snapshot.
 - Payment: `V1` baseline, `V2` payment idempotency, `V3` refund inbox/idempotency.
+- Notification: `V1` recipient snapshot, Kafka inbox, read state, email delivery và nhắc khởi hành.
 - Tour: backfill MongoDB additive, idempotent khi startup.
 
 Mọi migration đều giữ dữ liệu cũ và dừng sớm khi precondition không an toàn.
