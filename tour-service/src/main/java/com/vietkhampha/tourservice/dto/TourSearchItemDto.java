@@ -12,6 +12,8 @@ public class TourSearchItemDto {
     private String coverImageUrl;
     private BigDecimal basePrice;
     private BigDecimal avgRating;
+    private String tourType;
+    private String departureLocation;
     private Instant nearestDepartureDate;
     private boolean hasAvailableSlot;
 
@@ -22,6 +24,8 @@ public class TourSearchItemDto {
         dto.coverImageUrl = doc.getCoverImageUrl();
         dto.basePrice = doc.getBasePrice();
         dto.avgRating = doc.getAvgRating();
+        dto.tourType = doc.getTourType();
+        dto.departureLocation = doc.getDepartureLocation();
         dto.nearestDepartureDate = doc.getNearestDepartureDate();
         dto.hasAvailableSlot = doc.isHasAvailableSlot();
         return dto;
@@ -32,6 +36,8 @@ public class TourSearchItemDto {
     public String getCoverImageUrl() { return coverImageUrl; }
     public BigDecimal getBasePrice() { return basePrice; }
     public BigDecimal getAvgRating() { return avgRating; }
+    public String getTourType() { return tourType; }
+    public String getDepartureLocation() { return departureLocation; }
     public Instant getNearestDepartureDate() { return nearestDepartureDate; }
     public boolean isHasAvailableSlot() { return hasAvailableSlot; }
 }

@@ -3,6 +3,8 @@ package com.vietkhampha.bookingservice.controller;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
 import com.vietkhampha.bookingservice.dto.CreateBookingResponse;
+import com.vietkhampha.bookingservice.entity.Booking;
+import com.vietkhampha.bookingservice.entity.BookingParticipant;
 import com.vietkhampha.bookingservice.entity.TourSlot;
 import com.vietkhampha.bookingservice.outbox.OutboxPoller;
 import com.vietkhampha.bookingservice.repository.BookingParticipantRepository;
@@ -151,7 +153,13 @@ class BookingCreationIdempotencyIntegrationTest {
         assertEquals(1, bookingRepository.count());
         assertEquals(1, participantRepository.count());
         assertEquals(1, idempotencyKeyRepository.count());
-        assertEquals(1, outboxEventRepository.count());
+        assertEquals(2, outboxEventRepository.count());
+        assertEquals(
+                Set.of("booking.created", "departure.updated"),
+                outboxEventRepository.findAll().stream()
+                        .map(event -> event.getEventType())
+                        .collect(java.util.stream.Collectors.toSet())
+        );
         assertEquals(1, tourSlotRepository.findById(slot.getId()).orElseThrow().getBookedCount());
 
         Long ttlSeconds = jdbcTemplate.queryForObject("""
@@ -319,7 +327,13 @@ class BookingCreationIdempotencyIntegrationTest {
             assertEquals(1, bookingRepository.count());
             assertEquals(1, participantRepository.count());
             assertEquals(1, idempotencyKeyRepository.count());
-            assertEquals(1, outboxEventRepository.count());
+            assertEquals(2, outboxEventRepository.count());
+            assertEquals(
+                    Set.of("booking.created", "departure.updated"),
+                    outboxEventRepository.findAll().stream()
+                            .map(event -> event.getEventType())
+                            .collect(java.util.stream.Collectors.toSet())
+            );
             assertEquals(1, tourSlotRepository.findById(slot.getId()).orElseThrow().getBookedCount());
         } finally {
             executor.shutdownNow();
@@ -349,9 +363,76 @@ class BookingCreationIdempotencyIntegrationTest {
         assertEquals(1, tourSlotRepository.findById(fullSlot.getId()).orElseThrow().getBookedCount());
     }
 
+    @Test
+    void privatePerPersonBookingUsesChildRoomAndOptionalGuidePricing_withoutSharedCapacity() {
+        UUID customerId = UUID.randomUUID();
+        LocalDate startDate = LocalDate.now().plusDays(20);
+        Map<String, Object> request = privateRequest(
+                "private-tour-per-person",
+                startDate,
+                true,
+                1,
+                participant("Nguyen Van A", "0901000001", true, "ADULT"),
+                participant("Nguyen Van B", null, false, "CHILD")
+        );
+
+        ResponseEntity<CreateBookingResponse> response = createBooking(customerId, "private-person-key", request);
+
+        assertEquals(HttpStatus.CREATED, response.getStatusCode());
+        assertEquals(new BigDecimal("2000000.00"), requireBody(response).getTotalAmount());
+        Booking booking = bookingRepository.findAll().get(0);
+        assertEquals(Booking.BookingType.PRIVATE, booking.getBookingType());
+        assertEquals(Booking.PriceModel.PER_PERSON, booking.getPriceModel());
+        assertEquals(null, booking.getDepartureId());
+        assertEquals(startDate, booking.getStartDate());
+        assertEquals(startDate.plusDays(2), booking.getEndDate());
+        assertTrue(booking.getCommercialSnapshot().contains("\"childCount\":1"));
+        assertTrue(booking.getCommercialSnapshot().contains("\"optionalGuideAmount\":200000"));
+        assertEquals(0, tourSlotRepository.count());
+        assertEquals(
+                Set.of(BookingParticipant.ParticipantType.ADULT, BookingParticipant.ParticipantType.CHILD),
+                participantRepository.findAll().stream()
+                        .map(BookingParticipant::getParticipantType)
+                        .collect(java.util.stream.Collectors.toSet())
+        );
+    }
+
+    @Test
+    void privatePerGroupBookingChargesOneFixedGroupPrice() {
+        Map<String, Object> request = privateRequest(
+                "private-tour-per-group",
+                LocalDate.now().plusDays(15),
+                false,
+                0,
+                participant("Nguyen Van A", null, true, "ADULT"),
+                participant("Nguyen Van B", null, false, "ADULT"),
+                participant("Nguyen Van C", null, false, "CHILD")
+        );
+
+        ResponseEntity<CreateBookingResponse> response = createBooking(
+                UUID.randomUUID(), "private-group-key", request
+        );
+
+        assertEquals(HttpStatus.CREATED, response.getStatusCode());
+        assertEquals(new BigDecimal("5000000.00"), requireBody(response).getTotalAmount());
+        Booking booking = bookingRepository.findAll().get(0);
+        assertEquals(Booking.BookingType.PRIVATE, booking.getBookingType());
+        assertEquals(Booking.PriceModel.PER_GROUP, booking.getPriceModel());
+        assertEquals(3, booking.getParticipantCount());
+        assertEquals(0, tourSlotRepository.count());
+    }
+
     private TourSlot createSlot(int capacity) {
         return tourSlotRepository.saveAndFlush(
-                new TourSlot("idempotency-tour-" + UUID.randomUUID(), LocalDate.now().plusDays(30), capacity)
+                new TourSlot(
+                        "idempotency-tour-" + UUID.randomUUID(),
+                        LocalDate.now().plusDays(30),
+                        LocalDate.now().plusDays(30),
+                        capacity,
+                        "fixture-guide",
+                        null,
+                        TourSlot.Status.OPEN
+                )
         );
     }
 
@@ -402,11 +483,34 @@ class BookingCreationIdempotencyIntegrationTest {
     }
 
     private Map<String, Object> participant(String fullName, String phone, boolean primaryContact) {
+        return participant(fullName, phone, primaryContact, "ADULT");
+    }
+
+    private Map<String, Object> participant(
+            String fullName, String phone, boolean primaryContact, String participantType
+    ) {
         Map<String, Object> participant = new LinkedHashMap<>();
         participant.put("fullName", fullName);
         participant.put("phone", phone);
         participant.put("primaryContact", primaryContact);
+        participant.put("participantType", participantType);
         return participant;
+    }
+
+    private Map<String, Object> privateRequest(
+            String tourId,
+            LocalDate requestedStartDate,
+            boolean guideOptionSelected,
+            int singleRoomCount,
+            Map<String, Object>... participants
+    ) {
+        Map<String, Object> request = new LinkedHashMap<>();
+        request.put("tourId", tourId);
+        request.put("requestedStartDate", requestedStartDate.toString());
+        request.put("guideOptionSelected", guideOptionSelected);
+        request.put("singleRoomCount", singleRoomCount);
+        request.put("participants", new ArrayList<>(List.of(participants)));
+        return request;
     }
 
     private CreateBookingResponse requireBody(ResponseEntity<CreateBookingResponse> response) {
@@ -443,8 +547,26 @@ class BookingCreationIdempotencyIntegrationTest {
             if (delayMillis > 0) {
                 Thread.sleep(delayMillis);
             }
-            byte[] response = ("{\"basePrice\":" + BASE_PRICE.toPlainString() + "}")
-                    .getBytes(StandardCharsets.UTF_8);
+            String tourId = exchange.getRequestURI().getPath().substring("/v1/tours/".length());
+            String responseBody;
+            if (tourId.startsWith("private-tour-per-group")) {
+                responseBody = privateTourResponse(tourId, "PER_GROUP", "NONE", "5000000", "0", "0");
+            } else if (tourId.startsWith("private-tour-per-person")) {
+                responseBody = privateTourResponse(tourId, "PER_PERSON", "OPTIONAL", "1000000", "200000", "300000");
+            } else {
+                responseBody = """
+                        {"id":"%s","name":"Tour fixture","status":"ACTIVE","tourType":"GROUP",
+                        "priceModel":"PER_PERSON","basePrice":%s,"minGroupSize":1,"maxGroupSize":30,
+                        "guideMode":"INCLUDED","durationDays":1,"singleRoomSupplement":0,
+                        "childPolicy":{"pricePercentage":75},
+                        "cancellationPolicy":[
+                          {"minimumDaysBeforeDeparture":7,"refundPercentage":100},
+                          {"minimumDaysBeforeDeparture":3,"refundPercentage":50},
+                          {"minimumDaysBeforeDeparture":0,"refundPercentage":0}
+                        ]}
+                        """.formatted(tourId, BASE_PRICE.toPlainString());
+            }
+            byte[] response = responseBody.getBytes(StandardCharsets.UTF_8);
             exchange.getResponseHeaders().set("Content-Type", "application/json");
             exchange.sendResponseHeaders(200, response.length);
             exchange.getResponseBody().write(response);
@@ -454,6 +576,17 @@ class BookingCreationIdempotencyIntegrationTest {
         } finally {
             exchange.close();
         }
+    }
+
+    private static String privateTourResponse(String tourId, String priceModel, String guideMode,
+                                              String basePrice, String guidePrice, String roomPrice) {
+        return """
+                {"id":"%s","name":"Private fixture","status":"ACTIVE","tourType":"PRIVATE",
+                "priceModel":"%s","basePrice":%s,"minGroupSize":1,"maxGroupSize":8,
+                "guideMode":"%s","optionalGuidePrice":%s,"durationDays":3,
+                "singleRoomSupplement":%s,"childPolicy":{"pricePercentage":50},
+                "cancellationPolicy":[{"minimumDaysBeforeDeparture":0,"refundPercentage":0}]}
+                """.formatted(tourId, priceModel, basePrice, guideMode, guidePrice, roomPrice);
     }
 
     private void await(CountDownLatch latch) {

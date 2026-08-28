@@ -1,85 +1,70 @@
-# JourneyAI — Sprint 0 (Dev Environment Setup)
+# Việt Khám Phá
 
-Khung sườn hạ tầng + service mẫu cho đồ án ĐATN "Xây dựng website quản lý và
-đặt tour du lịch tích hợp gợi ý hành trình bằng AI cho Công ty Du lịch Việt
-Khám Phá theo kiến trúc Microservices".
+Backend cho nền tảng đặt Tour Việt Nam và gợi ý hành trình tự túc bằng AI. MVP tập trung vào Tour ghép trọn gói, Tour riêng có giá xác định trước và AI itinerary độc lập; không xây inventory khách sạn, vé máy bay hay vé tham quan kiểu OTA.
 
-## Trạng thái Sprint 0
+## Miền nghiệp vụ MVP
 
-| Task | Trạng thái |
-|---|---|
-| `T-000-1` — Multi-module Maven (6 service Java) | ⏳ Chỉ có `auth-service` làm mẫu — 5 service còn lại thêm ở Sprint 1-6 |
-| `T-000-1b` — FastAPI project cho `ai-service` | ✅ Khung sườn xong |
-| `T-000-2` — Docker Compose hạ tầng | ✅ Xong (Postgres, MongoDB, Redis, Elasticsearch, Kafka) |
-| `T-000-3` — GitHub Actions CI | ⏳ Chưa làm — bước tiếp theo |
-| `T-000-4` — Zipkin container | ✅ Có trong docker-compose.yml (chưa tích hợp code, đúng scope Sprint 0) |
+- Tour ghép: `Tour -> Departure -> Booking -> Participants -> Payment`; capacity và HDV cụ thể thuộc từng Departure.
+- Tour riêng: một Booking là một đoàn riêng, giá `PER_PERSON` hoặc `PER_GROUP`, không dùng shared capacity; HDV có thể included/optional/none.
+- AI itinerary: tạo, lưu, xem và chia sẻ lịch trình + dự toán; không phụ thuộc Tour/Booking.
+- Các thành phần khách sạn, phòng, xe, bữa ăn, vé và bảo hiểm được lưu trong package Tour.
 
-## Cách chạy
+Contract chi tiết: [docs/MVP_API_CONTRACT.md](docs/MVP_API_CONTRACT.md).
 
-```bash
-cp .env.example .env
-# Điền JWT_SIGNING_SECRET (bất kỳ chuỗi random dài nào cho môi trường dev)
+## Công nghệ và service
+
+- Java 17, Spring Boot, Spring Cloud Gateway
+- FastAPI cho AI service
+- PostgreSQL cho Auth/User/Booking/Payment
+- MongoDB cho Tour và AI itinerary
+- Redis, Elasticsearch, Kafka/outbox, Zipkin
+
+Các module hiện có: `api-gateway`, `auth-service`, `user-service`, `tour-service`, `booking-service`, `payment-service`, `ai-service`.
+
+## Chạy local
+
+```powershell
+Copy-Item .env.example .env
+# Cấu hình JWT_SIGNING_SECRET đủ dài và thông tin VNPay sandbox nếu cần.
 
 docker compose up -d --build
-```
-
-## Kiểm tra hạ tầng đã lên đúng chưa
-
-```bash
 docker compose ps
-# Tất cả container phải ở trạng thái "healthy" hoặc "running"
-
-curl http://localhost:8081/v1/auth/ping
-# Kỳ vọng: {"service":"auth-service","status":"UP","timestamp":"..."}
-
-curl http://localhost:8087/v1/ai/ping
-# Kỳ vọng: {"service":"ai-service","status":"UP","timestamp":"..."}
-
-curl http://localhost:9200
-# Elasticsearch info
-
-curl http://localhost:9411
-# Zipkin UI (mở trình duyệt)
 ```
 
-## Cấu trúc thư mục
+API Gateway: `http://localhost:8090`. AI health public:
 
-```
-journeyai/
-├── docker-compose.yml          # Toàn bộ hạ tầng + service
-├── pom.xml                     # Maven parent (multi-module)
-├── infra/
-│   └── postgres-init/          # Script tạo database-per-service
-├── auth-service/                # Module Java mẫu — chuẩn hóa pattern
-│   ├── pom.xml
-│   ├── Dockerfile
-│   └── src/main/java/com/vietkhampha/authservice/
-│       ├── AuthServiceApplication.java
-│       ├── config/SecurityConfig.java
-│       └── controller/PingController.java
-└── ai-service/                  # Python/FastAPI — Polyglot (AI_PIPELINE.md §2)
-    ├── requirements.txt
-    ├── Dockerfile
-    ├── main.py
-    └── app/config.py
+```powershell
+Invoke-RestMethod http://localhost:8090/v1/ai/ping
 ```
 
-## Nguyên tắc nhân bản sang 5 service Java còn lại (Sprint 1-6)
+Nếu dùng database được tạo trước khi dự án chuyển sang Flyway, làm đúng [runbook migration legacy](docs/LEGACY_DB_MIGRATION.md); không bật baseline tự động khi chưa chạy preflight.
 
-Mỗi service Java mới (`user-service`, `tour-service`, `booking-service`,
-`payment-service`, `notification-service`) nhân bản đúng cấu trúc
-`auth-service`:
+## Kiểm tra
 
-1. Copy `auth-service/pom.xml` → đổi `artifactId`, xóa dependency không cần
-   (vd `tour-service` dùng MongoDB thay vì PostgreSQL — xem `ERD.md` §6).
-2. Thêm `<module>xxx-service</module>` vào `pom.xml` gốc.
-3. Copy `Dockerfile`, đổi đường dẫn `target/xxx-service.jar`.
-4. Thêm service vào `docker-compose.yml`, đúng port đã quy ước (Gateway sẽ
-   route theo Docker DNS — tên container = tên service).
-5. Base path controller theo đúng `API_CONTRACT.md` (`/v1/users`, `/v1/tours`...).
+Java reactor:
 
-## Việc còn lại trước khi coi Sprint 0 hoàn tất
+```powershell
+mvn clean verify
+```
 
-- `T-000-3`: thêm `.github/workflows/ci.yml` (build + test tự động).
-- Thêm `api-gateway` module (route request tới các service qua Docker DNS,
-  JWT validation tập trung — `ARCHITECTURE.md` §4.1/§6.1).
+AI service:
+
+```powershell
+python -m pytest ai-service/tests
+```
+
+Smoke test xuyên service sau khi Docker stack đã chạy:
+
+```powershell
+./scripts/smoke-be-mvp.ps1
+```
+
+Smoke test tạo dữ liệu có prefix `[SMOKE ...]`, kiểm tra GROUP/PRIVATE, Departure capacity, pricing snapshot, idempotency, Payment `INITIATED` và AI itinerary sharing. Script không thực hiện giao dịch hoặc refund thật.
+
+## Migration hiện tại
+
+- Booking: `V1` baseline, `V2` status, `V3` idempotency, `V4` payment inbox, `V5` Departure, `V6` GROUP/PRIVATE + commercial snapshot.
+- Payment: `V1` baseline, `V2` payment idempotency, `V3` refund inbox/idempotency.
+- Tour: backfill MongoDB additive, idempotent khi startup.
+
+Mọi migration đều giữ dữ liệu cũ và dừng sớm khi precondition không an toàn.

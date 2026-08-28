@@ -8,20 +8,30 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.time.LocalDate;
+import java.util.UUID;
 import java.util.stream.Collectors;
+import com.vietkhampha.bookingservice.dto.AssignGuideRequest;
+import com.vietkhampha.bookingservice.dto.BookingResponse;
+import com.vietkhampha.bookingservice.service.BookingService;
+import jakarta.validation.Valid;
 @RestController
 @RequestMapping("/v1/admin/bookings")
 public class AdminBookingController {
 
     private final BookingRepository bookingRepository;
+    private final BookingService bookingService;
 
-    public AdminBookingController(BookingRepository bookingRepository) {
+    public AdminBookingController(BookingRepository bookingRepository, BookingService bookingService) {
         this.bookingRepository = bookingRepository;
+        this.bookingService = bookingService;
     }
 
     @GetMapping
@@ -41,6 +51,14 @@ public class AdminBookingController {
                 .collect(Collectors.toList());
 
         return ResponseEntity.ok(new AdminBookingListResponse(items, result.getTotalElements(), page));
+    }
+
+    @PatchMapping("/{bookingId}/guide")
+    public ResponseEntity<BookingResponse> assignGuide(
+            @PathVariable UUID bookingId,
+            @Valid @RequestBody AssignGuideRequest request
+    ) {
+        return ResponseEntity.ok(bookingService.assignPrivateGuide(bookingId, request.getGuideId()));
     }
 
 }

@@ -60,17 +60,22 @@ class BookingSchemaMigrationTest {
     }
 
     @Test
-    void cleanDatabase_runsV1ThroughV4_andRestartDoesNotReapplyMigrations() throws SQLException {
+    void cleanDatabase_runsAllMigrations_andRestartDoesNotReapplyMigrations() throws SQLException {
         Flyway flyway = flyway(MIGRATION_LOCATION);
 
         MigrateResult firstStart = flyway.migrate();
 
-        assertEquals(4, firstStart.migrationsExecuted);
-        assertEquals(4, queryForInt("SELECT count(*) FROM flyway_schema_history WHERE success"));
+        assertEquals(6, firstStart.migrationsExecuted);
+        assertEquals(6, queryForInt("SELECT count(*) FROM flyway_schema_history WHERE success"));
         assertTrue(columnExists("idempotency_keys", "customer_id"));
         assertTrue(columnExists("idempotency_keys", "response_snapshot"));
         assertTrue(bookingStatusConstraint().contains("PAYMENT_REVIEW_REQUIRED"));
         assertTrue(tableExists("processed_payment_events"));
+        assertTrue(columnExists("tour_slots", "end_date"));
+        assertTrue(columnExists("tour_slots", "guide_id"));
+        assertTrue(columnExists("bookings", "tour_id"));
+        assertTrue(columnExists("bookings", "commercial_snapshot"));
+        assertTrue(columnExists("booking_participants", "participant_type"));
         assertEquals(List.of("event_id"), primaryKeyColumns("processed_payment_events"));
         assertEquals(4, queryForInt("""
                 SELECT count(*)
@@ -98,7 +103,7 @@ class BookingSchemaMigrationTest {
         MigrateResult secondStart = flyway(MIGRATION_LOCATION).migrate();
 
         assertEquals(0, secondStart.migrationsExecuted);
-        assertEquals(4, queryForInt("SELECT count(*) FROM flyway_schema_history WHERE success"));
+        assertEquals(6, queryForInt("SELECT count(*) FROM flyway_schema_history WHERE success"));
     }
 
     @Test
@@ -132,7 +137,7 @@ class BookingSchemaMigrationTest {
         assertEquals("BASELINE", queryForString("""
                 SELECT type FROM flyway_schema_history WHERE version = '1'
                 """));
-        assertEquals(4, queryForInt("SELECT count(*) FROM flyway_schema_history WHERE success"));
+        assertEquals(6, queryForInt("SELECT count(*) FROM flyway_schema_history WHERE success"));
     }
 
     @Test
@@ -186,7 +191,7 @@ class BookingSchemaMigrationTest {
                   AND response_snapshot IS NULL
                 """));
         assertEquals(List.of("customer_id", "key"), primaryKeyColumns("idempotency_keys"));
-        assertEquals(4, queryForInt("SELECT count(*) FROM flyway_schema_history WHERE success"));
+        assertEquals(6, queryForInt("SELECT count(*) FROM flyway_schema_history WHERE success"));
     }
 
     @Test
@@ -455,6 +460,11 @@ class BookingSchemaMigrationTest {
         List<LegacyRecord> records = new ArrayList<>();
 
         try (Connection connection = connection();
+             PreparedStatement slotStatement = connection.prepareStatement("""
+                     INSERT INTO tour_slots (
+                         id, booked_count, departure_date, max_capacity, status, tour_id, version
+                     ) VALUES (?, 1, ?, 10, 'OPEN', ?, 0)
+                     """);
              PreparedStatement bookingStatement = connection.prepareStatement("""
                      INSERT INTO bookings (
                          id, created_at, customer_id, generated_itinerary_id, hold_expires_at,
@@ -470,6 +480,11 @@ class BookingSchemaMigrationTest {
                 UUID customerId = UUID.randomUUID();
                 UUID tourSlotId = UUID.randomUUID();
                 String key = "legacy-key-" + index;
+
+                slotStatement.setObject(1, tourSlotId);
+                slotStatement.setObject(2, java.time.LocalDate.now().plusDays(30 + index));
+                slotStatement.setString(3, "legacy-tour-" + index);
+                slotStatement.addBatch();
 
                 bookingStatement.setObject(1, bookingId);
                 bookingStatement.setObject(2, createdAt.atOffset(ZoneOffset.UTC));
@@ -487,6 +502,7 @@ class BookingSchemaMigrationTest {
 
                 records.add(new LegacyRecord(key, bookingId, createdAt, expiresAt));
             }
+            slotStatement.executeBatch();
             bookingStatement.executeBatch();
             keyStatement.executeBatch();
         }

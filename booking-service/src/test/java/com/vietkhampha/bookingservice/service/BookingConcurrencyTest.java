@@ -93,8 +93,13 @@ class BookingConcurrencyTest {
         jdbcTemplate.update("""
                 INSERT INTO bookings (
                     id, created_at, customer_id, generated_itinerary_id, hold_expires_at,
-                    participant_count, status, total_amount, tour_slot_id, updated_at
-                ) VALUES (?, ?, ?, NULL, ?, 1, 'PENDING', ?, ?, ?)
+                    participant_count, status, total_amount, tour_slot_id, updated_at,
+                    tour_id, booking_type, start_date, end_date, price_model, unit_price,
+                    commercial_snapshot, cancellation_policy_snapshot,
+                    guide_option_selected, single_room_count
+                ) VALUES (?, ?, ?, NULL, ?, 1, 'PENDING', ?, ?, ?,
+                    ?, 'GROUP', ?, ?, 'PER_PERSON', ?, '{}',
+                    '[{"minimumDaysBeforeDeparture":0,"refundPercentage":0}]', false, 0)
                 """,
                 bookingId,
                 createdAt.atOffset(ZoneOffset.UTC),
@@ -102,7 +107,11 @@ class BookingConcurrencyTest {
                 holdExpiresAt.atOffset(ZoneOffset.UTC),
                 BigDecimal.valueOf(1000000),
                 savedSlot.getId(),
-                createdAt.atOffset(ZoneOffset.UTC)
+                createdAt.atOffset(ZoneOffset.UTC),
+                savedSlot.getTourId(),
+                savedSlot.getDepartureDate(),
+                savedSlot.getEndDate(),
+                BigDecimal.valueOf(1000000)
         );
     }
 

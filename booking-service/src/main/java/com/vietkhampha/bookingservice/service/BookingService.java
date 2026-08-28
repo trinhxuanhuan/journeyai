@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.vietkhampha.bookingservice.client.TourServiceClient;
 import com.vietkhampha.bookingservice.dto.CreateBookingRequest;
 import com.vietkhampha.bookingservice.dto.CreateBookingResponse;
+import com.vietkhampha.bookingservice.dto.BookingResponse;
 import com.vietkhampha.bookingservice.dto.CustomerBookingItemResponse;
 import com.vietkhampha.bookingservice.dto.CustomerBookingListResponse;
 import com.vietkhampha.bookingservice.dto.ParticipantDto;
@@ -23,6 +24,11 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.time.LocalDate;
+import java.time.ZoneId;
+import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.time.Duration;
@@ -39,6 +45,7 @@ public class BookingService {
     private final ObjectMapper objectMapper;
     private final BookingStateMachineService stateMachineService;
     private final BookingRequestHasher bookingRequestHasher;
+    private final com.vietkhampha.bookingservice.event.DepartureEventPublisher departureEventPublisher;
 
     private static final long LATE_PAYMENT_GRACE_PERIOD_MINUTES = 15;
     private static final Duration IDEMPOTENCY_TTL = Duration.ofHours(24);
@@ -47,7 +54,8 @@ public class BookingService {
                           IdempotencyKeyRepository idempotencyKeyRepository, OutboxEventRepository outboxEventRepository,
                           TourServiceClient tourServiceClient, ObjectMapper objectMapper,
                           BookingStateMachineService stateMachineService,
-                          BookingRequestHasher bookingRequestHasher) {
+                          BookingRequestHasher bookingRequestHasher,
+                          com.vietkhampha.bookingservice.event.DepartureEventPublisher departureEventPublisher) {
         this.bookingRepository = bookingRepository;
         this.tourSlotRepository = tourSlotRepository;
         this.idempotencyKeyRepository = idempotencyKeyRepository;
@@ -56,6 +64,7 @@ public class BookingService {
         this.objectMapper = objectMapper;
         this.stateMachineService = stateMachineService;
         this.bookingRequestHasher = bookingRequestHasher;
+        this.departureEventPublisher = departureEventPublisher;
     }
 
     public record BookingResult(CreateBookingResponse response, boolean isReplay) {}
@@ -105,30 +114,41 @@ public class BookingService {
                     .orElseThrow(() -> new IllegalStateException(
                             "Idempotency claim conflict resolved without a persisted record"
                     ));
-            return replayExisting(existingKey, requestHash, requestTime);
+            return replayExisting(existingKey, customerId, request, requestHash, requestTime);
         }
 
         IdempotencyKey claimedKey = idempotencyKeyRepository.findById(idempotencyKeyId)
                 .orElseThrow(() -> new IllegalStateException("Created idempotency claim cannot be loaded"));
 
-        TourSlot slot = tourSlotRepository.findByIdForUpdate(request.getTourSlotId())
-                .orElseThrow(() -> new BusinessException(ErrorCode.TOUR_SLOT_NOT_FOUND));
-
         int participantCount = request.getParticipants().size();
-        if (!slot.hasCapacityFor(participantCount)) {
-            throw new BusinessException(ErrorCode.SLOT_UNAVAILABLE);
+        BookingQuote quote = quoteBooking(request, participantCount);
+
+        if (quote.departure() != null) {
+            quote.departure().reserve(participantCount);
+            tourSlotRepository.save(quote.departure());
+            departureEventPublisher.publishUpdated(quote.departure());
         }
 
-        BigDecimal basePrice = tourServiceClient.getTourBasePrice(slot.getTourId());
-        BigDecimal totalAmount = basePrice.multiply(BigDecimal.valueOf(participantCount));
-
-        slot.reserve(participantCount);
-        tourSlotRepository.save(slot);
-
-        Booking booking = new Booking(customerId, slot.getId(), participantCount, totalAmount);
-        booking.setGeneratedItineraryId(request.getGeneratedItineraryId());
+        Booking booking = new Booking(
+                customerId,
+                quote.tour().id(),
+                quote.bookingType(),
+                quote.departure() == null ? null : quote.departure().getId(),
+                quote.startDate(),
+                quote.endDate(),
+                participantCount,
+                quote.priceModel(),
+                quote.unitPrice(),
+                quote.totalAmount(),
+                quote.commercialSnapshot(),
+                quote.cancellationPolicySnapshot(),
+                request.isGuideOptionSelected(),
+                request.getSingleRoomCount()
+        );
         for (ParticipantDto p : request.getParticipants()) {
-            booking.addParticipant(new BookingParticipant(p.getFullName(), p.getPhone(), p.isPrimaryContact()));
+            booking.addParticipant(new BookingParticipant(
+                    p.getFullName(), p.getPhone(), p.isPrimaryContact(), p.getParticipantType()
+            ));
         }
         Booking savedBooking = bookingRepository.save(booking);
 
@@ -140,14 +160,191 @@ public class BookingService {
         return new BookingResult(response, false);
     }
 
-    private BookingResult replayExisting(IdempotencyKey existingKey, String requestHash, Instant requestTime) {
+    private BookingQuote quoteBooking(CreateBookingRequest request, int participantCount) {
+        if (participantCount < 1 || request.getSingleRoomCount() > participantCount) {
+            throw new BusinessException(ErrorCode.BOOKING_REQUEST_INVALID);
+        }
+        long primaryContacts = request.getParticipants().stream().filter(ParticipantDto::isPrimaryContact).count();
+        if (primaryContacts != 1) {
+            throw new BusinessException(ErrorCode.BOOKING_REQUEST_INVALID);
+        }
+
+        TourSlot departure = null;
+        TourServiceClient.TourInfo tour;
+        Booking.BookingType bookingType;
+        LocalDate startDate;
+        LocalDate endDate;
+        BigDecimal unitPrice;
+
+        if (request.getDepartureId() != null) {
+            departure = tourSlotRepository.findByIdForUpdate(request.getDepartureId())
+                    .orElseThrow(() -> new BusinessException(ErrorCode.TOUR_SLOT_NOT_FOUND));
+            if (request.getTourId() != null && !request.getTourId().isBlank()
+                    && !request.getTourId().equals(departure.getTourId())) {
+                throw new BusinessException(ErrorCode.BOOKING_REQUEST_INVALID);
+            }
+            tour = tourServiceClient.requireActiveTour(departure.getTourId());
+            if (!"GROUP".equals(tour.tourType())) {
+                throw new BusinessException(ErrorCode.BOOKING_REQUEST_INVALID);
+            }
+            if (departure.getGuideId() == null || departure.getGuideId().isBlank()) {
+                throw new BusinessException(ErrorCode.DEPARTURE_CONFIGURATION_INVALID);
+            }
+            if (!departure.hasCapacityFor(participantCount)) {
+                throw new BusinessException(ErrorCode.SLOT_UNAVAILABLE);
+            }
+            bookingType = Booking.BookingType.GROUP;
+            startDate = departure.getStartDate();
+            endDate = departure.getEndDate();
+            unitPrice = departure.getPriceOverride() == null ? tour.basePrice() : departure.getPriceOverride();
+        } else {
+            if (request.getTourId() == null || request.getTourId().isBlank()) {
+                throw new BusinessException(ErrorCode.BOOKING_REQUEST_INVALID);
+            }
+            tour = tourServiceClient.requireActiveTour(request.getTourId());
+            if (!"PRIVATE".equals(tour.tourType())) {
+                throw new BusinessException(ErrorCode.BOOKING_REQUEST_INVALID);
+            }
+            if (request.getRequestedStartDate() == null
+                    || request.getRequestedStartDate().isBefore(LocalDate.now(ZoneId.of("Asia/Ho_Chi_Minh")))) {
+                throw new BusinessException(ErrorCode.PRIVATE_START_DATE_INVALID);
+            }
+            bookingType = Booking.BookingType.PRIVATE;
+            startDate = request.getRequestedStartDate();
+            endDate = startDate.plusDays(Math.max(0, tour.durationDays() - 1L));
+            unitPrice = tour.basePrice();
+        }
+
+        if (participantCount < tour.minGroupSize() || participantCount > tour.maxGroupSize()) {
+            throw new BusinessException(ErrorCode.GROUP_SIZE_INVALID);
+        }
+        if (request.isGuideOptionSelected() && !"OPTIONAL".equals(tour.guideMode())) {
+            throw new BusinessException(ErrorCode.BOOKING_REQUEST_INVALID);
+        }
+
+        Booking.PriceModel priceModel;
+        try {
+            priceModel = Booking.PriceModel.valueOf(tour.priceModel());
+        } catch (IllegalArgumentException exception) {
+            throw new BusinessException(ErrorCode.TOUR_SERVICE_INVALID_RESPONSE);
+        }
+        validateCommercialConfiguration(tour, bookingType, priceModel, unitPrice);
+
+        long adultCount = request.getParticipants().stream()
+                .filter(participant -> participant.getParticipantType() == BookingParticipant.ParticipantType.ADULT)
+                .count();
+        long childCount = participantCount - adultCount;
+
+        BigDecimal packageAmount;
+        if (priceModel == Booking.PriceModel.PER_GROUP) {
+            packageAmount = unitPrice;
+        } else {
+            BigDecimal adultAmount = unitPrice.multiply(BigDecimal.valueOf(adultCount));
+            BigDecimal childUnitPrice = unitPrice
+                    .multiply(tour.childPricePercentage())
+                    .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
+            packageAmount = adultAmount.add(childUnitPrice.multiply(BigDecimal.valueOf(childCount)));
+        }
+
+        BigDecimal singleRoomAmount = tour.singleRoomSupplement()
+                .multiply(BigDecimal.valueOf(request.getSingleRoomCount()));
+        BigDecimal guideAmount = request.isGuideOptionSelected()
+                ? tour.optionalGuidePrice()
+                : BigDecimal.ZERO;
+        BigDecimal totalAmount = packageAmount.add(singleRoomAmount).add(guideAmount)
+                .setScale(2, RoundingMode.HALF_UP);
+
+        String cancellationPolicySnapshot = serialize(tour.cancellationPolicy());
+        String commercialSnapshot = commercialSnapshot(
+                tour, bookingType, departure, startDate, endDate, priceModel, unitPrice,
+                adultCount, childCount, packageAmount, singleRoomAmount, guideAmount, totalAmount
+        );
+
+        return new BookingQuote(
+                tour, bookingType, departure, startDate, endDate, priceModel,
+                unitPrice, totalAmount, commercialSnapshot, cancellationPolicySnapshot
+        );
+    }
+
+    private void validateCommercialConfiguration(TourServiceClient.TourInfo tour,
+                                                 Booking.BookingType bookingType,
+                                                 Booking.PriceModel priceModel,
+                                                 BigDecimal unitPrice) {
+        if (unitPrice == null || unitPrice.signum() <= 0
+                || tour.minGroupSize() < 1 || tour.maxGroupSize() < tour.minGroupSize()
+                || tour.durationDays() < 1
+                || tour.childPricePercentage() == null
+                || tour.childPricePercentage().signum() < 0
+                || tour.childPricePercentage().compareTo(BigDecimal.valueOf(100)) > 0
+                || tour.singleRoomSupplement() == null || tour.singleRoomSupplement().signum() < 0
+                || tour.optionalGuidePrice() == null || tour.optionalGuidePrice().signum() < 0) {
+            throw new BusinessException(ErrorCode.TOUR_SERVICE_INVALID_RESPONSE);
+        }
+        if (bookingType == Booking.BookingType.GROUP
+                && (priceModel != Booking.PriceModel.PER_PERSON || !"INCLUDED".equals(tour.guideMode()))) {
+            throw new BusinessException(ErrorCode.TOUR_SERVICE_INVALID_RESPONSE);
+        }
+    }
+
+    private String commercialSnapshot(TourServiceClient.TourInfo tour, Booking.BookingType bookingType,
+                                      TourSlot departure, LocalDate startDate, LocalDate endDate,
+                                      Booking.PriceModel priceModel, BigDecimal unitPrice,
+                                      long adultCount, long childCount, BigDecimal packageAmount,
+                                      BigDecimal singleRoomAmount, BigDecimal guideAmount,
+                                      BigDecimal totalAmount) {
+        Map<String, Object> snapshot = new LinkedHashMap<>(tour.commercialData());
+        snapshot.remove("tourGuideId");
+        snapshot.put("bookingType", bookingType.name());
+        snapshot.put("departureId", departure == null ? null : departure.getId().toString());
+        snapshot.put("startDate", startDate.toString());
+        snapshot.put("endDate", endDate.toString());
+
+        Map<String, Object> priceBreakdown = new LinkedHashMap<>();
+        priceBreakdown.put("priceModel", priceModel.name());
+        priceBreakdown.put("unitPrice", unitPrice);
+        priceBreakdown.put("adultCount", adultCount);
+        priceBreakdown.put("childCount", childCount);
+        priceBreakdown.put("childPricePercentage", tour.childPricePercentage());
+        priceBreakdown.put("packageAmount", packageAmount);
+        priceBreakdown.put("singleRoomSupplementAmount", singleRoomAmount);
+        priceBreakdown.put("optionalGuideAmount", guideAmount);
+        priceBreakdown.put("totalAmount", totalAmount);
+        snapshot.put("priceBreakdown", priceBreakdown);
+        return serialize(snapshot);
+    }
+
+    private String serialize(Object value) {
+        try {
+            return objectMapper.writeValueAsString(value);
+        } catch (Exception exception) {
+            throw new IllegalStateException("Khong the tao commercial snapshot", exception);
+        }
+    }
+
+    private record BookingQuote(
+            TourServiceClient.TourInfo tour,
+            Booking.BookingType bookingType,
+            TourSlot departure,
+            LocalDate startDate,
+            LocalDate endDate,
+            Booking.PriceModel priceModel,
+            BigDecimal unitPrice,
+            BigDecimal totalAmount,
+            String commercialSnapshot,
+            String cancellationPolicySnapshot
+    ) {}
+
+    private BookingResult replayExisting(IdempotencyKey existingKey, UUID customerId,
+                                         CreateBookingRequest request, String requestHash, Instant requestTime) {
         if (existingKey.getRecordState() == IdempotencyKey.RecordState.LEGACY_EXPIRED
                 || !requestTime.isBefore(existingKey.getExpiresAt())) {
             throw new BusinessException(ErrorCode.IDEMPOTENCY_KEY_EXPIRED);
         }
 
-        if (!BookingRequestHasher.HASH_VERSION.equals(existingKey.getHashVersion())
-                || !requestHash.equals(existingKey.getRequestHash())) {
+        String expectedHash = BookingRequestHasher.HASH_VERSION.equals(existingKey.getHashVersion())
+                ? requestHash
+                : bookingRequestHasher.hashForVersion(customerId, request, existingKey.getHashVersion());
+        if (expectedHash == null || !expectedHash.equals(existingKey.getRequestHash())) {
             throw new BusinessException(ErrorCode.IDEMPOTENCY_KEY_REUSED);
         }
 
@@ -195,13 +392,18 @@ public class BookingService {
 
     private void publishBookingCreatedEvent(Booking booking) {
         try {
-            String payload = objectMapper.writeValueAsString(Map.of(
-                    "bookingId", booking.getId().toString(),
-                    "customerId", booking.getCustomerId().toString(),
-                    "tourSlotId", booking.getTourSlotId().toString(),
-                    "totalAmount", booking.getTotalAmount(),
-                    "holdExpiresAt", booking.getHoldExpiresAt().toString()
-            ));
+            Map<String, Object> eventPayload = new LinkedHashMap<>();
+            eventPayload.put("bookingId", booking.getId().toString());
+            eventPayload.put("customerId", booking.getCustomerId().toString());
+            eventPayload.put("tourId", booking.getTourId());
+            eventPayload.put("bookingType", booking.getBookingType().name());
+            eventPayload.put("departureId", booking.getDepartureId() == null
+                    ? null : booking.getDepartureId().toString());
+            eventPayload.put("tourSlotId", booking.getTourSlotId() == null
+                    ? null : booking.getTourSlotId().toString());
+            eventPayload.put("totalAmount", booking.getTotalAmount());
+            eventPayload.put("holdExpiresAt", booking.getHoldExpiresAt().toString());
+            String payload = objectMapper.writeValueAsString(eventPayload);
             OutboxEvent event = new OutboxEvent("BOOKING", booking.getId(), "booking.created", payload);
             outboxEventRepository.save(event);
         } catch (Exception e) {
@@ -231,10 +433,13 @@ public class BookingService {
             return;
         }
 
-        TourSlot slot = tourSlotRepository.findByIdForUpdate(booking.getTourSlotId())
-                .orElseThrow();
-        slot.release(booking.getParticipantCount());
-        tourSlotRepository.save(slot);
+        if (booking.usesSharedCapacity()) {
+            TourSlot slot = tourSlotRepository.findByIdForUpdate(booking.getTourSlotId())
+                    .orElseThrow();
+            slot.release(booking.getParticipantCount());
+            tourSlotRepository.save(slot);
+            departureEventPublisher.publishUpdated(slot);
+        }
 
         stateMachineService.transition(booking, event);
         bookingRepository.save(booking);
@@ -285,11 +490,19 @@ public class BookingService {
             return;
         }
 
+        if (!booking.usesSharedCapacity()) {
+            stateMachineService.transition(booking, BookingEvent.LATE_PAYMENT_RECOVERED);
+            bookingRepository.save(booking);
+            publishLatePaymentRecoveredEvent(booking);
+            return;
+        }
+
         TourSlot slot = tourSlotRepository.findByIdForUpdate(booking.getTourSlotId()).orElseThrow();
 
         if (slot.hasCapacityFor(booking.getParticipantCount())) {
             slot.reserve(booking.getParticipantCount());
             tourSlotRepository.save(slot);
+            departureEventPublisher.publishUpdated(slot);
 
             stateMachineService.transition(booking, BookingEvent.LATE_PAYMENT_RECOVERED);
             bookingRepository.save(booking);
@@ -375,39 +588,115 @@ public class BookingService {
             throw new BusinessException(ErrorCode.BOOKING_NOT_CANCELLABLE);
         }
 
-        TourSlot slot = tourSlotRepository.findByIdForUpdate(booking.getTourSlotId()).orElseThrow();
-        long hoursUntilDeparture = java.time.Duration.between(
-                java.time.Instant.now(),
-                slot.getDepartureDate().atStartOfDay(java.time.ZoneId.of("Asia/Ho_Chi_Minh")).toInstant()
-        ).toHours();
-        if (hoursUntilDeparture < 24) {
+        long daysUntilDeparture = java.time.temporal.ChronoUnit.DAYS.between(
+                LocalDate.now(ZoneId.of("Asia/Ho_Chi_Minh")),
+                booking.getStartDate()
+        );
+        if (daysUntilDeparture < 0) {
             throw new BusinessException(ErrorCode.BOOKING_CANCEL_WINDOW_CLOSED);
         }
 
-        int refundPercentage = calculateRefundPercentage(hoursUntilDeparture);
+        int refundPercentage = calculateRefundPercentage(booking, daysUntilDeparture);
 
-        slot.release(booking.getParticipantCount());
-        tourSlotRepository.save(slot);
+        if (booking.usesSharedCapacity()) {
+            TourSlot slot = tourSlotRepository.findByIdForUpdate(booking.getTourSlotId()).orElseThrow();
+            slot.release(booking.getParticipantCount());
+            tourSlotRepository.save(slot);
+            departureEventPublisher.publishUpdated(slot);
+        }
 
         stateMachineService.transition(booking, BookingEvent.CUSTOMER_CANCEL);
         bookingRepository.save(booking);
 
-        publishBookingCancelledEvent(booking, refundPercentage);
+        publishBookingCancelledEvent(booking, refundPercentage, "Khach hang chu dong huy");
     }
 
-    private int calculateRefundPercentage(long hoursUntilDeparture) {
-        long daysUntilDeparture = hoursUntilDeparture / 24;
-        if (daysUntilDeparture >= 7) return 100;
-        if (daysUntilDeparture >= 3) return 50;
-        return 0;
+    @Transactional
+    public BookingResponse assignPrivateGuide(UUID bookingId, String guideId) {
+        Booking booking = bookingRepository.findByIdForUpdate(bookingId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.BOOKING_NOT_FOUND));
+        if (booking.getBookingType() != Booking.BookingType.PRIVATE) {
+            throw new BusinessException(ErrorCode.BOOKING_REQUEST_INVALID);
+        }
+        TourServiceClient.TourInfo tour = tourServiceClient.requireActiveTour(booking.getTourId());
+        if ("NONE".equals(tour.guideMode())
+                || ("OPTIONAL".equals(tour.guideMode()) && !booking.isGuideOptionSelected())) {
+            throw new BusinessException(ErrorCode.BOOKING_REQUEST_INVALID);
+        }
+        tourServiceClient.requireActiveGuide(guideId);
+        booking.assignGuide(guideId);
+        return BookingResponse.from(bookingRepository.save(booking));
     }
 
-    private void publishBookingCancelledEvent(Booking booking, int refundPercentage) {
+    @Transactional
+    public void cancelDeparture(UUID departureId) {
+        TourSlot departure = tourSlotRepository.findByIdForUpdate(departureId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.SLOT_NOT_FOUND));
+        if (departure.getStatus() == TourSlot.Status.CANCELLED) return;
+        if (departure.getStatus() == TourSlot.Status.COMPLETED) {
+            throw new BusinessException(ErrorCode.DEPARTURE_CONFIGURATION_INVALID);
+        }
+
+        for (Booking booking : bookingRepository.findByTourSlotId(departureId)) {
+            if (booking.getStatus() != Booking.Status.PENDING
+                    && booking.getStatus() != Booking.Status.CONFIRMED) {
+                continue;
+            }
+            boolean paid = booking.getStatus() == Booking.Status.CONFIRMED;
+            departure.release(booking.getParticipantCount());
+            stateMachineService.transition(booking, BookingEvent.CUSTOMER_CANCEL);
+            bookingRepository.save(booking);
+            publishBookingCancelledEvent(booking, paid ? 100 : 0, "Lich khoi hanh bi huy");
+        }
+        departure.applyUpdate(null, null, null, null, null, TourSlot.Status.CANCELLED);
+        tourSlotRepository.save(departure);
+        departureEventPublisher.publishUpdated(departure);
+    }
+
+    @Transactional
+    public void completeDeparture(UUID departureId) {
+        TourSlot departure = tourSlotRepository.findByIdForUpdate(departureId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.SLOT_NOT_FOUND));
+        if (departure.getStatus() == TourSlot.Status.COMPLETED) return;
+        if (departure.getStatus() == TourSlot.Status.CANCELLED) {
+            throw new BusinessException(ErrorCode.DEPARTURE_CONFIGURATION_INVALID);
+        }
+        if (departure.getEndDate().isAfter(LocalDate.now(ZoneId.of("Asia/Ho_Chi_Minh")))) {
+            throw new BusinessException(ErrorCode.DEPARTURE_CONFIGURATION_INVALID);
+        }
+        for (Booking booking : bookingRepository.findByTourSlotId(departureId)) {
+            if (booking.getStatus() == Booking.Status.CONFIRMED) {
+                stateMachineService.transition(booking, BookingEvent.TOUR_COMPLETED);
+                bookingRepository.save(booking);
+            }
+        }
+        departure.applyUpdate(null, null, null, null, null, TourSlot.Status.COMPLETED);
+        tourSlotRepository.save(departure);
+        departureEventPublisher.publishUpdated(departure);
+    }
+
+    @SuppressWarnings("unchecked")
+    private int calculateRefundPercentage(Booking booking, long daysUntilDeparture) {
+        try {
+            List<Map<String, Object>> rules = objectMapper.readValue(
+                    booking.getCancellationPolicySnapshot(), List.class
+            );
+            return rules.stream()
+                    .filter(rule -> daysUntilDeparture >= ((Number) rule.get("minimumDaysBeforeDeparture")).longValue())
+                    .map(rule -> ((Number) rule.get("refundPercentage")).intValue())
+                    .findFirst()
+                    .orElse(0);
+        } catch (Exception exception) {
+            throw new IllegalStateException("Cancellation policy snapshot khong hop le", exception);
+        }
+    }
+
+    private void publishBookingCancelledEvent(Booking booking, int refundPercentage, String reason) {
         try {
             String payload = objectMapper.writeValueAsString(Map.of(
                     "bookingId", booking.getId().toString(),
                     "customerId", booking.getCustomerId().toString(),
-                    "reason", "Khach hang chu dong huy",
+                    "reason", reason,
                     "refundEligible", refundPercentage > 0,
                     "refundPercentage", refundPercentage
             ));

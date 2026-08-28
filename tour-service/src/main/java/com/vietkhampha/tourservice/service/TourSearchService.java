@@ -14,6 +14,8 @@ import org.springframework.data.elasticsearch.core.SearchHits;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -27,6 +29,7 @@ public class TourSearchService {
     }
 
     public TourSearchResponse search(String q, String destination, BigDecimal minPrice, BigDecimal maxPrice,
+                                     String fromDate, String toDate, String tourType,
                                      Double lat, Double lng, Double radiusKm,
                                      String sortBy, int page, int size) {
 
@@ -42,6 +45,42 @@ public class TourSearchService {
 
         if (destination != null && !destination.isBlank()) {
             boolQuery.filter(f -> f.term(t -> t.field("province").value(destination)));
+        }
+
+        if (tourType != null && !tourType.isBlank()) {
+            boolQuery.filter(f -> f.term(t -> t.field("tourType").value(tourType.toUpperCase())));
+        }
+
+        if (fromDate != null || toDate != null) {
+            try {
+                LocalDate parsedFromDate = fromDate == null ? null : LocalDate.parse(fromDate);
+                LocalDate parsedToDate = toDate == null ? null : LocalDate.parse(toDate);
+                if (parsedFromDate != null && parsedToDate != null
+                        && parsedFromDate.isAfter(parsedToDate)) {
+                    throw new java.time.format.DateTimeParseException(
+                            "fromDate must not be after toDate", fromDate, 0
+                    );
+                }
+                boolQuery.filter(f -> f.range(range -> {
+                    range.field("availableDepartureDates");
+                    if (parsedFromDate != null) {
+                        range.gte(co.elastic.clients.json.JsonData.of(
+                                parsedFromDate.atStartOfDay().toInstant(ZoneOffset.UTC).toString()
+                        ));
+                    }
+                    if (parsedToDate != null) {
+                        range.lte(co.elastic.clients.json.JsonData.of(
+                                parsedToDate.plusDays(1).atStartOfDay()
+                                        .toInstant(ZoneOffset.UTC).minusNanos(1).toString()
+                        ));
+                    }
+                    return range;
+                }));
+            } catch (java.time.format.DateTimeParseException exception) {
+                throw new com.vietkhampha.tourservice.exception.BusinessException(
+                        com.vietkhampha.tourservice.exception.ErrorCode.VALIDATION_FAILED
+                );
+            }
         }
 
         if (minPrice != null || maxPrice != null) {

@@ -27,6 +27,7 @@ public interface PaymentRepository extends JpaRepository<Payment, UUID> {
     @Query("select payment from Payment payment where payment.gatewayTransactionRef = :ref")
     Optional<Payment> findByGatewayTransactionRefForUpdate(@Param("ref") String ref);
 
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
     Optional<Payment> findFirstByBookingIdAndStatusOrderByCreatedAtDesc(UUID bookingId, Payment.Status status);
 
     boolean existsByBookingIdAndStatusIn(UUID bookingId, Collection<Payment.Status> statuses);

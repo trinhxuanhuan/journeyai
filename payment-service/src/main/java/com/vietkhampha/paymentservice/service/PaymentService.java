@@ -5,6 +5,7 @@ import com.vietkhampha.paymentservice.client.BookingServiceClient;
 import com.vietkhampha.paymentservice.dto.CreatePaymentRequest;
 import com.vietkhampha.paymentservice.dto.CreatePaymentResponse;
 import com.vietkhampha.paymentservice.dto.VNPayIpnResponse;
+import com.vietkhampha.paymentservice.dto.PaymentStatusResponse;
 import com.vietkhampha.paymentservice.entity.OutboxEvent;
 import com.vietkhampha.paymentservice.entity.Payment;
 import com.vietkhampha.paymentservice.entity.PaymentIdempotencyKey;
@@ -75,6 +76,14 @@ public class PaymentService {
     }
 
     public record PaymentResult(CreatePaymentResponse response, boolean replay) {
+    }
+
+    @Transactional(readOnly = true)
+    public PaymentStatusResponse getPayment(UUID paymentId, String userIdHeader) {
+        Payment payment = paymentRepository.findById(paymentId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.PAYMENT_NOT_FOUND));
+        bookingServiceClient.getBooking(payment.getBookingId(), userIdHeader);
+        return PaymentStatusResponse.from(payment);
     }
 
     public PaymentResult createPayment(
@@ -384,6 +393,10 @@ public class PaymentService {
     public void processRefund(UUID bookingId, int refundPercentage, String ipAddress) {
         Payment payment = paymentRepository.findFirstByBookingIdAndStatusOrderByCreatedAtDesc(bookingId, Payment.Status.SUCCESS)
                 .orElseThrow(() -> new BusinessException(ErrorCode.PAYMENT_NOT_FOUND));
+
+        if (refundRepository.existsByPaymentId(payment.getId())) {
+            return;
+        }
 
         BigDecimal refundAmount = payment.getAmount()
                 .multiply(BigDecimal.valueOf(refundPercentage))

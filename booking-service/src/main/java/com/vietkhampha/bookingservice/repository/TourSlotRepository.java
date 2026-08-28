@@ -31,4 +31,12 @@ public interface TourSlotRepository extends JpaRepository<TourSlot, UUID> {
             TourSlot.Status status,
             LocalDate departureDate
     );
+
+    List<TourSlot> findByTourIdAndStatusAndDepartureDateGreaterThanEqualOrderByDepartureDateAsc(
+            String tourId,
+            TourSlot.Status status,
+            LocalDate departureDate
+    );
+
+    List<TourSlot> findByTourIdOrderByDepartureDateAsc(String tourId);
 }

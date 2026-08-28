@@ -29,6 +29,7 @@ import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.Map;
+import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
@@ -182,6 +183,50 @@ class AdminSlotControllerIntegrationTest {
         }
     }
 
+    @Test
+    void departureApiCreatesGuideAssignedDeparture_andPublicApiDerivesFullStatus() {
+        LocalDate startDate = futureDate();
+        LocalDate endDate = startDate.plusDays(2);
+
+        ResponseEntity<Map> created = createDeparture(
+                "active-tour", startDate, endDate, 1, "active-guide"
+        );
+
+        assertEquals(HttpStatus.CREATED, created.getStatusCode());
+        Map createdBody = requireBody(created);
+        assertEquals("active-tour", createdBody.get("tourId"));
+        assertEquals(startDate.toString(), createdBody.get("startDate"));
+        assertEquals(endDate.toString(), createdBody.get("endDate"));
+        assertEquals("active-guide", createdBody.get("guideId"));
+        assertEquals("OPEN", createdBody.get("status"));
+        assertEquals(true, createdBody.get("bookable"));
+
+        var departure = tourSlotRepository.findAll().get(0);
+        departure.reserve(1);
+        tourSlotRepository.saveAndFlush(departure);
+
+        ResponseEntity<List> publicResponse = restTemplate.getForEntity(
+                "/v1/tours/{tourId}/departures", List.class, "active-tour"
+        );
+        assertEquals(HttpStatus.OK, publicResponse.getStatusCode());
+        Map publicDeparture = (Map) publicResponse.getBody().get(0);
+        assertEquals("FULL", publicDeparture.get("status"));
+        assertEquals(false, publicDeparture.get("bookable"));
+        assertEquals(0, publicDeparture.get("availableSeats"));
+    }
+
+    @Test
+    void departureApiRejectsInactiveGuide() {
+        LocalDate startDate = futureDate();
+
+        ResponseEntity<Map> response = createDeparture(
+                "active-tour", startDate, startDate.plusDays(2), 20, "inactive-guide"
+        );
+
+        assertBusinessError(response, HttpStatus.BAD_REQUEST, "GUIDE_NOT_AVAILABLE");
+        assertEquals(0, tourSlotRepository.count());
+    }
+
     private ResponseEntity<Map> createSlot(String tourId, LocalDate departureDate, int maxCapacity) {
         return restTemplate.exchange(
                 "/v1/admin/tours/{tourId}/slots",
@@ -189,6 +234,22 @@ class AdminSlotControllerIntegrationTest {
                 new HttpEntity<>(Map.of(
                         "departureDate", departureDate.toString(),
                         "maxCapacity", maxCapacity
+                )),
+                Map.class,
+                tourId
+        );
+    }
+
+    private ResponseEntity<Map> createDeparture(String tourId, LocalDate startDate, LocalDate endDate,
+                                                int capacity, String guideId) {
+        return restTemplate.exchange(
+                "/v1/admin/tours/{tourId}/departures",
+                HttpMethod.POST,
+                new HttpEntity<>(Map.of(
+                        "startDate", startDate.toString(),
+                        "endDate", endDate.toString(),
+                        "capacity", capacity,
+                        "guideId", guideId
                 )),
                 Map.class,
                 tourId
@@ -213,10 +274,27 @@ class AdminSlotControllerIntegrationTest {
         try {
             HttpServer server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
             server.createContext("/v1/tours/", AdminSlotControllerIntegrationTest::respondWithTour);
+            server.createContext("/v1/admin/tour-guides/", AdminSlotControllerIntegrationTest::respondWithGuide);
             server.start();
             return server;
         } catch (IOException exception) {
             throw new ExceptionInInitializerError(exception);
+        }
+    }
+
+    private static void respondWithGuide(HttpExchange exchange) throws IOException {
+        try {
+            String guideId = exchange.getRequestURI().getPath()
+                    .substring("/v1/admin/tour-guides/".length());
+            if ("active-guide".equals(guideId)) {
+                sendJson(exchange, 200, "{\"id\":\"active-guide\",\"active\":true}");
+            } else if ("inactive-guide".equals(guideId)) {
+                sendJson(exchange, 200, "{\"id\":\"inactive-guide\",\"active\":false}");
+            } else {
+                sendJson(exchange, 404, "{\"error\":\"TOUR_GUIDE_NOT_FOUND\"}");
+            }
+        } finally {
+            exchange.close();
         }
     }
 
@@ -227,7 +305,7 @@ class AdminSlotControllerIntegrationTest {
                 case "active-tour" -> sendJson(
                         exchange,
                         200,
-                        "{\"id\":\"active-tour\",\"status\":\"ACTIVE\"}"
+                        "{\"id\":\"active-tour\",\"status\":\"ACTIVE\",\"tourGuideId\":\"legacy-guide\"}"
                 );
                 case "inactive-tour" -> sendJson(
                         exchange,

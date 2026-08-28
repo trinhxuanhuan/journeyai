@@ -32,7 +32,12 @@ spring:
         - id: booking-service-slots
           uri: http://booking-service:8080
           predicates:
-            - Path=/v1/admin/tours/*/slots/**
+            - Path=/v1/admin/tours/*/slots/**,/v1/admin/tours/*/departures/**
+
+        - id: booking-service-admin-departures
+          uri: http://booking-service:8080
+          predicates:
+            - Path=/v1/admin/departures/**
 
         - id: tour-service-admin
           uri: http://tour-service:8080
@@ -75,6 +80,17 @@ spring:
           order: -1
           predicates:
             - Path=/v1/tours/*/slots
+
+        - id: booking-service-public-tour-departures
+          uri: http://booking-service:8080
+          order: -1
+          predicates:
+            - Path=/v1/tours/*/departures
+
+        - id: ai-service
+          uri: http://ai-service:8000
+          predicates:
+            - Path=/v1/ai/**
 
         - id: tour-service
           uri: http://tour-service:8080
