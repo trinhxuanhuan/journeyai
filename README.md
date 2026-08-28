@@ -6,10 +6,12 @@ Backend cho nền tảng đặt Tour Việt Nam và gợi ý hành trình tự t
 
 - Tour ghép: `Tour -> Departure -> Booking -> Participants -> Payment`; capacity và HDV cụ thể thuộc từng Departure.
 - Tour riêng: một Booking là một đoàn riêng, giá `PER_PERSON` hoặc `PER_GROUP`, không dùng shared capacity; HDV có thể included/optional/none.
-- AI itinerary: tạo, lưu, xem và chia sẻ lịch trình + dự toán; không phụ thuộc Tour/Booking.
+- AI itinerary: planner grounded tạo/lưu/chỉnh sửa/chia sẻ lịch trình, kiểm tra lịch và dự toán; không phụ thuộc Tour/Booking.
 - Các thành phần khách sạn, phòng, xe, bữa ăn, vé và bảo hiểm được lưu trong package Tour.
 
-Contract chi tiết: [docs/MVP_API_CONTRACT.md](docs/MVP_API_CONTRACT.md).
+Contract chi tiết: [docs/MVP_API_CONTRACT.md](docs/MVP_API_CONTRACT.md). Thiết kế và quality gates
+của AI: [docs/AI_PLANNER_V1.md](docs/AI_PLANNER_V1.md). Thứ tự hoàn thiện FE/Notification:
+[docs/DELIVERY_ROADMAP.md](docs/DELIVERY_ROADMAP.md).
 
 ## Công nghệ và service
 

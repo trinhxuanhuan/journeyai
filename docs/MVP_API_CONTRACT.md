@@ -199,7 +199,9 @@ Cancellation event được xử lý qua inbox idempotent; bảng refund chỉ c
 
 | Method | Path | Quyền | Ý nghĩa |
 |---|---|---|---|
+| `GET` | `/v1/ai/catalog` | Customer | Danh sách cụm điểm đến đã có dữ liệu kiểm duyệt |
 | `POST` | `/v1/ai/itineraries` | Customer | Tạo và lưu lịch trình + dự toán |
+| `POST` | `/v1/ai/itineraries/{id}/refine` | Chủ lịch trình | Chỉnh lịch trình bằng câu lệnh tự nhiên, có thể khóa ngày muốn giữ |
 | `GET` | `/v1/ai/itineraries/me` | Customer | Danh sách đã lưu |
 | `GET` | `/v1/ai/itineraries/{id}` | Chủ lịch trình | Xem chi tiết |
 | `POST` | `/v1/ai/itineraries/{id}/share` | Chủ lịch trình | Bật link chia sẻ |
@@ -213,12 +215,36 @@ Payload tạo:
   "days": 3,
   "budget": 6000000,
   "travelerCount": 2,
+  "childrenCount": 1,
+  "seniorCount": 0,
   "groupProfile": "FAMILY",
-  "preferences": ["di sản", "ẩm thực", "làng nghề"]
+  "preferences": ["di sản", "ẩm thực", "làng nghề"],
+  "pace": "BALANCED",
+  "transportPreference": "TAXI_RIDESHARE",
+  "startDate": "2026-10-10"
 }
 ```
 
-AI itinerary không có Departure, capacity, HDV hay payment. Khi Gemini không được cấu hình hoặc tạm lỗi, service trả phương án dự phòng có cấu trúc và vẫn lưu được.
+`pace`: `RELAXED | BALANCED | ACTIVE`. `transportPreference`: `PUBLIC_TRANSPORT | TAXI_RIDESHARE | MOTORBIKE | PRIVATE_CAR | FLEXIBLE`.
+
+Payload chỉnh sửa:
+
+```json
+{
+  "instruction": "Làm ngày 2 nhẹ hơn, bỏ Đại Nội Huế và giảm ngân sách xuống 5 triệu",
+  "lockedDayNumbers": [1]
+}
+```
+
+Response V2 bổ sung lịch theo khung giờ, thời gian di chuyển, chi phí từng hoạt động,
+`budgetAdjustments`, cảnh báo, giả định, `qualitySummary`, `plannerVersion`, `catalogVersion`,
+`revision` và lịch sử chỉnh sửa.
+Các ngày đã khóa được giữ nguyên. Link public không trả `userId` hoặc nội dung câu lệnh trong
+`refinementHistory`.
+
+AI itinerary không có Departure, capacity, HDV hay payment. Planner luôn lập lịch từ dữ liệu và
+quy tắc trước; Gemini chỉ cá nhân hóa phần diễn đạt, không được sửa địa điểm, thời gian, tọa độ hay
+chi phí. Khi Gemini không được cấu hình hoặc tạm lỗi, service vẫn trả kế hoạch grounded/rule-based.
 
 ## Kiểm tra xuyên service
 

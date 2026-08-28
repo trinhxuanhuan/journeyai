@@ -237,6 +237,7 @@ services:
       MONGO_DATABASE: ai_service_db
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
       GEMINI_MODEL: ${GEMINI_MODEL:-gemini-2.5-flash}
+      GEMINI_TIMEOUT_SECONDS: ${GEMINI_TIMEOUT_SECONDS:-20}
       REDIS_URL: redis://redis:6379
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       JWT_SIGNING_SECRET: ${JWT_SIGNING_SECRET:-dev_only_change_me}

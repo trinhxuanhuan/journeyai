@@ -310,11 +310,21 @@ if (-not (@($aiList.Body.items).id -contains $ai.Body.id)) {
 }
 $aiDetail = Invoke-MvpApi -Method GET -Path "/v1/ai/itineraries/$($ai.Body.id)" -Headers $customerHeaders -ExpectedStatus 200
 Assert-Equal $aiDetail.Body.destination "Huế" "AI itinerary detail is incorrect"
+$aiRefined = Invoke-MvpApi -Method POST -Path "/v1/ai/itineraries/$($ai.Body.id)/refine" -Headers $customerHeaders -ExpectedStatus 200 -Body @{
+    instruction      = "Làm ngày 2 nhẹ hơn và giảm ngân sách xuống 5 triệu"
+    lockedDayNumbers = @(1)
+}
+Assert-Equal $aiRefined.Body.revision 2 "AI itinerary revision was not incremented"
+Assert-Equal @($aiRefined.Body.itineraryDays)[1].pace "RELAXED" "AI itinerary did not refine the requested day"
+Assert-Equal @($aiRefined.Body.itineraryDays)[0].title @($ai.Body.itineraryDays)[0].title "AI itinerary changed a locked day"
 $share = Invoke-MvpApi -Method POST -Path "/v1/ai/itineraries/$($ai.Body.id)/share" -Headers $customerHeaders -ExpectedStatus 200
 $shared = Invoke-MvpApi -Method GET -Path $share.Body.sharePath -ExpectedStatus 200
 Assert-Equal $shared.Body.id $ai.Body.id "Public share did not return the same AI itinerary"
 if ($null -ne $shared.Body.userId) {
     throw "Public AI itinerary leaked its owner identifier."
+}
+if ($null -ne $shared.Body.refinementHistory) {
+    throw "Public AI itinerary leaked its refinement instructions."
 }
 
 Write-Host "[9/9] Verifying booking snapshots and final availability"
