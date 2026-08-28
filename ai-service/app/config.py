@@ -22,6 +22,7 @@ class Settings:
     tour_service_base_url: str = os.getenv("TOUR_SERVICE_BASE_URL", "http://tour-service:8080")
     gemini_api_key: str = os.getenv("GEMINI_API_KEY", "")
     gemini_model: str = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
+    gemini_timeout_seconds: float = float(os.getenv("GEMINI_TIMEOUT_SECONDS", "20"))
 
 
 settings = Settings()

@@ -14,7 +14,7 @@ async def lifespan(_: FastAPI):
     yield
 
 
-app = FastAPI(title="Việt Khám Phá — AI Itinerary Service", version="0.1.0", lifespan=lifespan)
+app = FastAPI(title="Việt Khám Phá — AI Itinerary Service", version="0.2.0", lifespan=lifespan)
 app.include_router(itineraries_router)
 
 
