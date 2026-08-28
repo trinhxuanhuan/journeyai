@@ -358,7 +358,6 @@ async def create_itinerary(
         "excludedPlaceNames": [],
         "refinementHistory": [],
         "shareEnabled": False,
-        "shareToken": None,
         "createdAt": now,
         "updatedAt": now,
     }

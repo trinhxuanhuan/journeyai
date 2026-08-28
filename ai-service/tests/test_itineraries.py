@@ -256,6 +256,20 @@ def test_create_refine_and_share_contract(monkeypatch) -> None:
     created_body = created.json()
     assert created_body["revision"] == 1
     assert created_body["qualitySummary"]["catalogCoverage"] == "CURATED"
+    assert all("shareToken" not in document for document in fake_collection.documents.values())
+
+    second_created = client.post(
+        "/v1/ai/itineraries",
+        headers=headers,
+        json={
+            "destination": "Huế",
+            "days": 2,
+            "budget": 4000000,
+            "travelerCount": 1,
+        },
+    )
+    assert second_created.status_code == 201
+    assert all("shareToken" not in document for document in fake_collection.documents.values())
 
     refined = client.post(
         f"/v1/ai/itineraries/{created_body['id']}/refine",

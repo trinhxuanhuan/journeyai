@@ -1,0 +1,66 @@
+spring:
+  application:
+    name: notification-service
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/notification_service_db}
+    username: ${SPRING_DATASOURCE_USERNAME:journeyai}
+    password: ${SPRING_DATASOURCE_PASSWORD:journeyai_dev_password}
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+    show-sql: false
+  flyway:
+    enabled: true
+    baseline-on-migrate: false
+    validate-on-migrate: true
+    locations: classpath:db/migration
+  mail:
+    host: ${SMTP_HOST:smtp.gmail.com}
+    port: ${SMTP_PORT:587}
+    username: ${SMTP_USERNAME:}
+    password: ${SMTP_PASSWORD:}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+          connectiontimeout: 5000
+          timeout: 10000
+          writetimeout: 10000
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    consumer:
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        spring.json.trusted.packages: "*"
+        spring.json.use.type.headers: false
+        spring.json.value.default.type: java.util.Map
+
+server:
+  port: 8080
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
+app:
+  frontend:
+    base-url: ${FRONTEND_BASE_URL:http://localhost:3000}
+  notification:
+    email:
+      enabled: ${EMAIL_ENABLED:false}
+      from-address: ${SMTP_FROM:no-reply@vietkhampha.vn}
+      dispatch-delay-ms: ${NOTIFICATION_EMAIL_DISPATCH_DELAY_MS:5000}
+      max-attempts: ${NOTIFICATION_EMAIL_MAX_ATTEMPTS:5}
+    reminder:
+      enabled: ${DEPARTURE_REMINDER_ENABLED:true}
+      days-before: ${DEPARTURE_REMINDER_DAYS_BEFORE:1}
+      cron: ${DEPARTURE_REMINDER_CRON:0 0 8 * * *}
+    inbox:
+      retry-delay-ms: ${NOTIFICATION_INBOX_RETRY_DELAY_MS:10000}
+      max-attempts: ${NOTIFICATION_INBOX_MAX_ATTEMPTS:10}

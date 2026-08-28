@@ -401,6 +401,8 @@ public class BookingService {
                     ? null : booking.getDepartureId().toString());
             eventPayload.put("tourSlotId", booking.getTourSlotId() == null
                     ? null : booking.getTourSlotId().toString());
+            eventPayload.put("startDate", booking.getStartDate().toString());
+            eventPayload.put("endDate", booking.getEndDate().toString());
             eventPayload.put("totalAmount", booking.getTotalAmount());
             eventPayload.put("holdExpiresAt", booking.getHoldExpiresAt().toString());
             String payload = objectMapper.writeValueAsString(eventPayload);
@@ -452,8 +454,12 @@ public class BookingService {
             String payload = objectMapper.writeValueAsString(Map.of(
                     "bookingId", booking.getId().toString(),
                     "customerId", booking.getCustomerId().toString(),
+                    "tourId", booking.getTourId(),
+                    "startDate", booking.getStartDate().toString(),
+                    "endDate", booking.getEndDate().toString(),
+                    "totalAmount", booking.getTotalAmount(),
                     "reason", reason,
-                    "refundEligible", false // Chưa có Payment Service thật — mặc định chưa hoàn tiền, sẽ cập nhật khi tích hợp VNPay
+                    "refundEligible", false
             ));
             OutboxEvent outboxEvent = new OutboxEvent("BOOKING", booking.getId(), eventType, payload);
             outboxEventRepository.save(outboxEvent);
@@ -519,6 +525,9 @@ public class BookingService {
                     "eventId", UUID.randomUUID().toString(),
                     "bookingId", booking.getId().toString(),
                     "customerId", booking.getCustomerId().toString(),
+                    "tourId", booking.getTourId(),
+                    "startDate", booking.getStartDate().toString(),
+                    "endDate", booking.getEndDate().toString(),
                     "totalAmount", booking.getTotalAmount(),
                     "recoveredAt", Instant.now().toString()
             ));
@@ -535,6 +544,9 @@ public class BookingService {
                     "eventId", UUID.randomUUID().toString(),
                     "bookingId", booking.getId().toString(),
                     "customerId", booking.getCustomerId().toString(),
+                    "tourId", booking.getTourId(),
+                    "startDate", booking.getStartDate().toString(),
+                    "endDate", booking.getEndDate().toString(),
                     "totalAmount", booking.getTotalAmount(),
                     "refundPercentage", 100,
                     "reason", "LATE_PAYMENT_SLOT_UNAVAILABLE"
@@ -552,6 +564,9 @@ public class BookingService {
                     "eventId", UUID.randomUUID().toString(),
                     "bookingId", booking.getId().toString(),
                     "customerId", booking.getCustomerId().toString(),
+                    "tourId", booking.getTourId(),
+                    "startDate", booking.getStartDate().toString(),
+                    "endDate", booking.getEndDate().toString(),
                     "totalAmount", booking.getTotalAmount(),
                     "delayMinutes", delay.toMinutes()
             ));
@@ -567,6 +582,9 @@ public class BookingService {
             String payload = objectMapper.writeValueAsString(Map.of(
                     "bookingId", booking.getId().toString(),
                     "customerId", booking.getCustomerId().toString(),
+                    "tourId", booking.getTourId(),
+                    "startDate", booking.getStartDate().toString(),
+                    "endDate", booking.getEndDate().toString(),
                     "totalAmount", booking.getTotalAmount()
             ));
             OutboxEvent event = new OutboxEvent("BOOKING", booking.getId(), "booking.confirmed", payload);
@@ -608,7 +626,7 @@ public class BookingService {
         stateMachineService.transition(booking, BookingEvent.CUSTOMER_CANCEL);
         bookingRepository.save(booking);
 
-        publishBookingCancelledEvent(booking, refundPercentage, "Khach hang chu dong huy");
+        publishBookingCancelledEvent(booking, refundPercentage, "Khách hàng chủ động hủy");
     }
 
     @Transactional
@@ -646,7 +664,7 @@ public class BookingService {
             departure.release(booking.getParticipantCount());
             stateMachineService.transition(booking, BookingEvent.CUSTOMER_CANCEL);
             bookingRepository.save(booking);
-            publishBookingCancelledEvent(booking, paid ? 100 : 0, "Lich khoi hanh bi huy");
+            publishBookingCancelledEvent(booking, paid ? 100 : 0, "Lịch khởi hành bị hủy");
         }
         departure.applyUpdate(null, null, null, null, null, TourSlot.Status.CANCELLED);
         tourSlotRepository.save(departure);
@@ -696,6 +714,9 @@ public class BookingService {
             String payload = objectMapper.writeValueAsString(Map.of(
                     "bookingId", booking.getId().toString(),
                     "customerId", booking.getCustomerId().toString(),
+                    "tourId", booking.getTourId(),
+                    "startDate", booking.getStartDate().toString(),
+                    "endDate", booking.getEndDate().toString(),
                     "reason", reason,
                     "refundEligible", refundPercentage > 0,
                     "refundPercentage", refundPercentage

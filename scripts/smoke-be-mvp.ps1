@@ -1,4 +1,4 @@
-[CmdletBinding()]
+﻿[CmdletBinding()]
 param(
     [string]$BaseUrl = "http://localhost:8090",
     [string]$JwtSecret = $env:JWT_SIGNING_SECRET
@@ -52,17 +52,71 @@ function Invoke-MvpApi {
     )
 
     $request = @{
-        Uri                = "$BaseUrl$Path"
-        Method             = $Method
-        Headers            = $Headers
-        SkipHttpErrorCheck = $true
+        Uri     = "$BaseUrl$Path"
+        Method  = $Method
+        Headers = $Headers
+    }
+    $invokeWebRequestParameters = (Get-Command Invoke-WebRequest).Parameters
+    if ($invokeWebRequestParameters.ContainsKey("SkipHttpErrorCheck")) {
+        $request.SkipHttpErrorCheck = $true
+    }
+    if ($invokeWebRequestParameters.ContainsKey("UseBasicParsing")) {
+        $request.UseBasicParsing = $true
     }
     if ($null -ne $Body) {
         $request.ContentType = "application/json; charset=utf-8"
-        $request.Body = $Body | ConvertTo-Json -Depth 20 -Compress
+        $jsonBody = $Body | ConvertTo-Json -Depth 20 -Compress
+        $request.Body = [Text.Encoding]::UTF8.GetBytes($jsonBody)
     }
 
-    $response = Invoke-WebRequest @request
+    try {
+        $response = Invoke-WebRequest @request
+    }
+    catch {
+        $httpResponse = $_.Exception.Response
+        if ($null -eq $httpResponse) {
+            throw
+        }
+
+        $content = ""
+        $responseStream = $httpResponse.GetResponseStream()
+        if ($null -ne $responseStream) {
+            $reader = [System.IO.StreamReader]::new($responseStream)
+            try {
+                $content = $reader.ReadToEnd()
+            }
+            finally {
+                $reader.Dispose()
+            }
+        }
+        $response = [pscustomobject]@{
+            StatusCode = [int]$httpResponse.StatusCode
+            Content    = $content
+        }
+    }
+    if ($PSVersionTable.PSVersion.Major -lt 6 -and $null -ne $response.RawContentStream) {
+        $rawContentStream = $response.RawContentStream
+        if ($rawContentStream.CanSeek) {
+            $rawContentStream.Position = 0
+        }
+        $reader = [System.IO.StreamReader]::new(
+            $rawContentStream,
+            [Text.Encoding]::UTF8,
+            $true,
+            1024,
+            $true
+        )
+        try {
+            $utf8Content = $reader.ReadToEnd()
+        }
+        finally {
+            $reader.Dispose()
+        }
+        $response = [pscustomobject]@{
+            StatusCode = [int]$response.StatusCode
+            Content    = $utf8Content
+        }
+    }
     if ($ExpectedStatus -notcontains [int]$response.StatusCode) {
         throw "$Method $Path expected HTTP $($ExpectedStatus -join '/') but received $($response.StatusCode). Body: $($response.Content)"
     }
@@ -89,6 +143,29 @@ function Assert-Equal {
     }
 }
 
+function Wait-ForBookingNotifications {
+    param(
+        [Parameter(Mandatory)][hashtable]$Headers,
+        [Parameter(Mandatory)][string[]]$BookingIds,
+        [int]$TimeoutSeconds = 20
+    )
+
+    $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
+    do {
+        $response = Invoke-MvpApi -Method GET -Path "/v1/notifications?status=UNREAD&page=0&size=20" -Headers $Headers -ExpectedStatus 200
+        $createdBookingIds = @($response.Body.content |
+            Where-Object { $_.type -eq "BOOKING_HOLD_CREATED" } |
+            ForEach-Object { $_.referenceId })
+        $missing = @($BookingIds | Where-Object { $createdBookingIds -notcontains $_ })
+        if ($missing.Count -eq 0) {
+            return $response
+        }
+        Start-Sleep -Milliseconds 500
+    } while ((Get-Date) -lt $deadline)
+
+    throw "Notification consumer did not create booking notifications within $TimeoutSeconds seconds."
+}
+
 if ([string]::IsNullOrWhiteSpace($JwtSecret)) {
     $envFile = Join-Path $PSScriptRoot "../.env"
     if (Test-Path $envFile) {
@@ -110,11 +187,11 @@ $adminHeaders = @{ Authorization = "Bearer $(New-SmokeJwt -Subject $adminId -Rol
 $customerHeaders = @{ Authorization = "Bearer $(New-SmokeJwt -Subject $customerId -Role CUSTOMER -Secret $JwtSecret)" }
 $secondCustomerHeaders = @{ Authorization = "Bearer $(New-SmokeJwt -Subject $secondCustomerId -Role CUSTOMER -Secret $JwtSecret)" }
 
-Write-Host "[1/9] Checking gateway and AI health"
+Write-Host "[1/10] Checking gateway and AI health"
 $health = Invoke-MvpApi -Method GET -Path "/v1/ai/ping" -ExpectedStatus 200
 Assert-Equal $health.Body.status "UP" "AI service is not healthy"
 
-Write-Host "[2/9] Creating an active tour guide"
+Write-Host "[2/10] Creating an active tour guide"
 $guide = Invoke-MvpApi -Method POST -Path "/v1/admin/tour-guides" -Headers $adminHeaders -ExpectedStatus 201 -Body @{
     fullName          = "HDV Smoke $runId"
     bio               = "Dữ liệu kiểm thử tự động cho BE MVP"
@@ -161,7 +238,7 @@ $itinerary = @(
     }
 )
 
-Write-Host "[3/9] Creating GROUP and PRIVATE tour packages"
+Write-Host "[3/10] Creating GROUP and PRIVATE tour packages"
 $groupTour = Invoke-MvpApi -Method POST -Path "/v1/admin/tours" -Headers $adminHeaders -ExpectedStatus 201 -Body @{
     name                   = "[SMOKE $runId] TP.HCM - Huế 3N2Đ"
     description            = "Tour ghép trọn gói quảng bá di sản và văn hóa Huế."
@@ -215,9 +292,9 @@ $privateTour = Invoke-MvpApi -Method POST -Path "/v1/admin/tours" -Headers $admi
 Assert-Equal $privateTour.Body.priceModel "PER_GROUP" "PRIVATE price model was not persisted"
 Assert-Equal $privateTour.Body.guideMode "OPTIONAL" "PRIVATE guide mode was not persisted"
 
-Write-Host "[4/9] Creating and exposing a GROUP departure"
-$startDate = [DateOnly]::FromDateTime((Get-Date).AddDays(30)).ToString("yyyy-MM-dd")
-$endDate = [DateOnly]::FromDateTime((Get-Date).AddDays(32)).ToString("yyyy-MM-dd")
+Write-Host "[4/10] Creating and exposing a GROUP departure"
+$startDate = (Get-Date).AddDays(30).ToString("yyyy-MM-dd", [System.Globalization.CultureInfo]::InvariantCulture)
+$endDate = (Get-Date).AddDays(32).ToString("yyyy-MM-dd", [System.Globalization.CultureInfo]::InvariantCulture)
 $departure = Invoke-MvpApi -Method POST -Path "/v1/admin/tours/$($groupTour.Body.id)/departures" -Headers $adminHeaders -ExpectedStatus 201 -Body @{
     startDate     = $startDate
     endDate       = $endDate
@@ -233,7 +310,7 @@ if (@($publicDepartures.Body).Count -ne 1) {
     throw "Public Departure API did not expose the created departure."
 }
 
-Write-Host "[5/9] Booking GROUP, replaying idempotently, and checking capacity"
+Write-Host "[5/10] Booking GROUP, replaying idempotently, and checking capacity"
 $groupBookingBody = @{
     departureId    = $departure.Body.departureId
     singleRoomCount = 1
@@ -261,7 +338,7 @@ $overflow = Invoke-MvpApi -Method POST -Path "/v1/bookings" -Headers $overflowHe
 }
 Assert-Equal $overflow.Body.error "SLOT_UNAVAILABLE" "Departure capacity conflict returned an unexpected error"
 
-Write-Host "[6/9] Booking PRIVATE without shared capacity and assigning its guide"
+Write-Host "[6/10] Booking PRIVATE without shared capacity and assigning its guide"
 $privateBookingBody = @{
     tourId               = $privateTour.Body.id
     requestedStartDate   = $startDate
@@ -284,7 +361,7 @@ if ($null -ne $assignedPrivate.Body.departureId) {
     throw "PRIVATE booking unexpectedly reserved a shared departure."
 }
 
-Write-Host "[7/9] Initiating payment, replaying idempotently, and reading status"
+Write-Host "[7/10] Initiating payment, replaying idempotently, and reading status"
 $paymentHeaders = $customerHeaders.Clone()
 $paymentHeaders["Idempotency-Key"] = "smoke-payment-$runId"
 $paymentBody = @{ bookingId = $privateBooking.Body.bookingId; gateway = "VNPAY" }
@@ -295,7 +372,25 @@ $paymentStatus = Invoke-MvpApi -Method GET -Path "/v1/payments/$($payment.Body.p
 Assert-Equal $paymentStatus.Body.status "INITIATED" "Payment did not remain safely in INITIATED state"
 Assert-Equal ([decimal]$paymentStatus.Body.amount) ([decimal]14300000) "Payment did not use the booking price snapshot"
 
-Write-Host "[8/9] Creating, listing, reading, and sharing an independent AI itinerary"
+Write-Host "[8/10] Verifying in-app notifications through Gateway and Kafka"
+$notifications = Wait-ForBookingNotifications -Headers $customerHeaders -BookingIds @(
+    $groupBooking.Body.bookingId,
+    $privateBooking.Body.bookingId
+)
+Assert-Equal $notifications.Body.unreadCount 2 "Notification unread count is incorrect"
+$groupNotification = @($notifications.Body.content |
+    Where-Object { $_.type -eq "BOOKING_HOLD_CREATED" -and $_.referenceId -eq $groupBooking.Body.bookingId })[0]
+if ($null -eq $groupNotification) {
+    throw "GROUP booking notification is missing."
+}
+$markedRead = Invoke-MvpApi -Method PATCH -Path "/v1/notifications/$($groupNotification.id)/read" -Headers $customerHeaders -ExpectedStatus 200
+Assert-Equal $markedRead.Body.read $true "Notification was not marked as read"
+$unreadCount = Invoke-MvpApi -Method GET -Path "/v1/notifications/unread-count" -Headers $customerHeaders -ExpectedStatus 200
+Assert-Equal $unreadCount.Body.unreadCount 1 "Notification unread count did not decrease"
+$otherOwnerRead = Invoke-MvpApi -Method PATCH -Path "/v1/notifications/$($groupNotification.id)/read" -Headers $secondCustomerHeaders -ExpectedStatus 404
+Assert-Equal $otherOwnerRead.Body.error "NOTIFICATION_NOT_FOUND" "Notification owner isolation failed"
+
+Write-Host "[9/10] Creating, listing, reading, and sharing an independent AI itinerary"
 $ai = Invoke-MvpApi -Method POST -Path "/v1/ai/itineraries" -Headers $customerHeaders -ExpectedStatus 201 -Body @{
     destination   = "Huế"
     days          = 3
@@ -327,7 +422,7 @@ if ($null -ne $shared.Body.refinementHistory) {
     throw "Public AI itinerary leaked its refinement instructions."
 }
 
-Write-Host "[9/9] Verifying booking snapshots and final availability"
+Write-Host "[10/10] Verifying booking snapshots and final availability"
 $groupDetail = Invoke-MvpApi -Method GET -Path "/v1/bookings/$($groupBooking.Body.bookingId)" -Headers $customerHeaders -ExpectedStatus 200
 Assert-Equal $groupDetail.Body.bookingType "GROUP" "GROUP booking type is incorrect"
 Assert-Equal $groupDetail.Body.priceModel "PER_PERSON" "GROUP booking price model is incorrect"
