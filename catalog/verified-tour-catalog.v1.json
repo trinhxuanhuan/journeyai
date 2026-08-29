@@ -1,0 +1,512 @@
+{
+  "schemaVersion": 1,
+  "verifiedAt": "2026-08-29",
+  "contentPolicy": "Địa danh và giá trị di sản được đối chiếu từ nguồn chính thống. Giá bán, tiêu chuẩn dịch vụ và lịch khởi hành là dữ liệu vận hành của Việt Khám Phá, chỉ được công bố sau khi quản trị viên xác nhận.",
+  "items": [
+    {
+      "code": "VKP-HUE-3D2N-GROUP",
+      "sources": [
+        {
+          "title": "UNESCO World Heritage Centre — Complex of Hué Monuments",
+          "url": "https://whc.unesco.org/en/list/678/"
+        },
+        {
+          "title": "UNESCO — Maps of the Complex of Hué Monuments",
+          "url": "https://whc.unesco.org/en/list/678/maps/"
+        },
+        {
+          "title": "Nghị quyết 175/2024/QH15 về thành lập thành phố Huế trực thuộc trung ương",
+          "url": "https://datafiles.chinhphu.vn/cpp/files/vbpq/2024/11/175-qh15.signed.pdf"
+        }
+      ],
+      "tour": {
+        "name": "Huế chậm một nhịp — Di sản cố đô 3N2Đ",
+        "description": "Hành trình trọn gói dành cho người muốn hiểu Huế qua quần thể di tích triều Nguyễn, nhịp sống bên sông Hương và ẩm thực địa phương. Tour bắt đầu và kết thúc tại Huế; khách tự túc đến điểm tập trung. Thứ tự tham quan có thể điều chỉnh theo thời tiết, giao thông hoặc thông báo vận hành của điểm di tích nhưng không tự ý cắt giảm quyền lợi đã công bố.",
+        "destination": {
+          "name": "Huế",
+          "province": "Thành phố Huế",
+          "geo": { "lat": 16.4637, "lng": 107.5909 }
+        },
+        "coverImageUrl": "/images/destination-hue-v1.webp",
+        "images": [],
+        "basePrice": 3690000,
+        "tourType": "GROUP",
+        "priceModel": "PER_PERSON",
+        "departureLocation": "Huế",
+        "meetingPoint": "Ga Huế, 02 Bùi Thị Xuân, phường Thuận Hóa",
+        "meetingTime": "08:00",
+        "minGroupSize": 1,
+        "maxGroupSize": 24,
+        "guideMode": "INCLUDED",
+        "optionalGuidePrice": 0,
+        "durationDays": 3,
+        "durationNights": 2,
+        "included": [
+          "Xe du lịch điều hòa phục vụ theo lịch trình tại Huế",
+          "02 đêm lưu trú tiêu chuẩn 3 sao hoặc tương đương, 02 khách/phòng",
+          "05 bữa chính và 02 bữa sáng theo chương trình",
+          "Vé vào cửa các điểm được ghi rõ trong lịch trình",
+          "Hướng dẫn viên tiếng Việt theo đoàn",
+          "Bảo hiểm du lịch nội địa theo hạn mức ghi trên hợp đồng",
+          "Nước uống 01 chai 500 ml/khách/ngày"
+        ],
+        "excluded": [
+          "Vé máy bay, tàu hỏa hoặc xe khách đưa khách đến Huế",
+          "Đồ uống gọi riêng, giặt là và chi tiêu cá nhân",
+          "Phụ thu phòng đơn khi khách không có người ghép phòng",
+          "Dịch vụ không được ghi trong mục đã bao gồm"
+        ],
+        "packageDetails": {
+          "accommodation": ["Khách sạn tiêu chuẩn 3 sao hoặc tương đương tại khu vực trung tâm Huế; phòng đôi hoặc hai giường, 02 khách/phòng"],
+          "transport": ["Xe du lịch điều hòa theo quy mô đoàn trong toàn bộ chương trình tại Huế"],
+          "meals": ["02 bữa sáng tại khách sạn", "05 bữa chính với món Huế và món Việt; thực đơn cụ thể xác nhận trước ngày đi"],
+          "tickets": ["Đại Nội Huế", "Chùa Thiên Mụ", "Lăng Khải Định", "Lăng Tự Đức"],
+          "insurance": ["Bảo hiểm du lịch nội địa; quyền lợi và hạn mức được gửi kèm xác nhận booking"]
+        },
+        "childPolicy": {
+          "description": "Khách được khai báo CHILD áp dụng 75% giá người lớn, ngủ chung giường với người lớn; mỗi hai người lớn kèm tối đa một trẻ theo chính sách này.",
+          "pricePercentage": 75
+        },
+        "singleRoomSupplement": 850000,
+        "cancellationPolicy": [
+          { "minimumDaysBeforeDeparture": 15, "refundPercentage": 90 },
+          { "minimumDaysBeforeDeparture": 7, "refundPercentage": 70 },
+          { "minimumDaysBeforeDeparture": 3, "refundPercentage": 40 },
+          { "minimumDaysBeforeDeparture": 0, "refundPercentage": 0 }
+        ],
+        "itinerary": [
+          {
+            "dayNumber": 1,
+            "title": "Chạm Huế qua chợ Đông Ba và nhịp sống sông Hương",
+            "activities": [
+              { "time": "08:00", "description": "Hướng dẫn viên đón đoàn tại Ga Huế, đối chiếu danh sách khách và phổ biến các mốc vận hành của hành trình trước khi khởi hành.", "location": { "lat": 16.4565, "lng": 107.5796 } },
+              { "time": "08:30", "description": "Dùng bữa sáng nhẹ với món địa phương; đây là bữa bổ sung ngày đầu và không thay thế bữa trưa trong chương trình.", "location": { "lat": 16.4637, "lng": 107.5909 } },
+              { "time": "10:00", "description": "Tham quan chợ Đông Ba, tìm hiểu cách người Huế sử dụng mắm, mè xửng, nón lá và các sản vật miền Trung; khách tự thanh toán món mua thêm.", "location": { "lat": 16.4723, "lng": 107.5885 } },
+              { "time": "12:00", "description": "Ăn trưa với thực đơn món Huế, sau đó nhận phòng hoặc gửi hành lý nếu khách sạn chưa đến giờ nhận phòng.", "location": { "lat": 16.4637, "lng": 107.5909 } },
+              { "time": "15:30", "description": "Đi bộ có hướng dẫn bên bờ sông Hương và khu vực cầu Trường Tiền, nghe câu chuyện hình thành đô thị Huế và lưu ý các vị trí chụp ảnh an toàn.", "location": { "lat": 16.4686, "lng": 107.5884 } },
+              { "time": "18:30", "description": "Ăn tối, trở về khách sạn nghỉ ngơi; thời gian còn lại khách tự do khám phá khu trung tâm trong phạm vi an toàn do hướng dẫn viên khuyến nghị.", "location": { "lat": 16.4637, "lng": 107.5909 } }
+            ]
+          },
+          {
+            "dayNumber": 2,
+            "title": "Đại Nội, Thiên Mụ và những lớp ký ức triều Nguyễn",
+            "activities": [
+              { "time": "07:00", "description": "Ăn sáng tại khách sạn và tập trung đúng giờ; hướng dẫn viên kiểm tra vé, nước uống và trang phục phù hợp không gian di tích.", "location": { "lat": 16.4637, "lng": 107.5909 } },
+              { "time": "08:00", "description": "Tham quan Đại Nội Huế thuộc Quần thể Di tích Cố đô Huế được UNESCO ghi danh; tuyến đi bộ dự kiến qua Ngọ Môn, khu điện Thái Hòa và các không gian mở cửa tại thời điểm vận hành.", "location": { "lat": 16.463, "lng": 107.576 } },
+              { "time": "11:30", "description": "Ăn trưa tại nhà hàng địa phương và nghỉ ngắn trước hành trình buổi chiều.", "location": { "lat": 16.4637, "lng": 107.5909 } },
+              { "time": "14:00", "description": "Tham quan chùa Thiên Mụ bên sông Hương, tìm hiểu vai trò của ngôi chùa trong cảnh quan văn hóa Huế; giữ trật tự và trang phục lịch sự tại khu vực thờ tự.", "location": { "lat": 16.453, "lng": 107.545 } },
+              { "time": "16:00", "description": "Trở lại trung tâm theo tuyến ven sông Hương; dừng chụp ảnh tại điểm phù hợp nếu điều kiện giao thông và thời tiết cho phép.", "location": { "lat": 16.4583, "lng": 107.5652 } },
+              { "time": "18:30", "description": "Ăn tối với món Việt, sau đó tự do nghỉ ngơi. Hoạt động nghe ca Huế không nằm trong giá tour và chỉ được gợi ý khi đơn vị khai thác đủ điều kiện phục vụ.", "location": { "lat": 16.4637, "lng": 107.5909 } }
+            ]
+          },
+          {
+            "dayNumber": 3,
+            "title": "Lăng tẩm phía nam và làng hương Thủy Xuân",
+            "activities": [
+              { "time": "07:00", "description": "Ăn sáng, làm thủ tục trả phòng và gửi hành lý lên xe; khách tự kiểm tra tư trang trước khi rời khách sạn.", "location": { "lat": 16.4637, "lng": 107.5909 } },
+              { "time": "08:15", "description": "Tham quan Lăng Khải Định, quan sát sự giao thoa vật liệu và trang trí Đông – Tây trong quần thể lăng; tuyến có nhiều bậc cấp nên khách cần đi giày phù hợp.", "location": { "lat": 16.399, "lng": 107.5903 } },
+              { "time": "10:15", "description": "Tham quan Lăng Tự Đức trong không gian hồ, thông và kiến trúc cung đình; hướng dẫn viên thuyết minh tại các khu vực đang mở cửa.", "location": { "lat": 16.4321, "lng": 107.5658 } },
+              { "time": "11:45", "description": "Dừng tại làng hương Thủy Xuân để tìm hiểu nghề làm hương; hoạt động mua sản phẩm hoặc chụp ảnh dịch vụ do khách tự quyết định và tự thanh toán.", "location": { "lat": 16.4368, "lng": 107.568 } },
+              { "time": "12:45", "description": "Ăn trưa, tổng kết hành trình và xác nhận lại giờ tàu, xe hoặc chuyến bay do khách tự đặt.", "location": { "lat": 16.4637, "lng": 107.5909 } },
+              { "time": "15:00", "description": "Đưa đoàn về Ga Huế. Tour kết thúc tại điểm tập trung; thời gian có thể điều chỉnh để phù hợp tình hình giao thông thực tế.", "location": { "lat": 16.4565, "lng": 107.5796 } }
+            ]
+          }
+        ]
+      },
+      "operations": {
+        "publicationStatus": "DRAFT",
+        "regionKey": "CENTRAL",
+        "firstDepartureOnOrAfter": "2026-09-12",
+        "dayOfWeek": "SATURDAY",
+        "occurrences": 8,
+        "intervalWeeks": 2,
+        "capacity": 24
+      }
+    },
+    {
+      "code": "VKP-HAGIANG-4D3N-GROUP",
+      "sources": [
+        {
+          "title": "Vietnam Tourism — The Ha Giang Loop: a four-day road trip",
+          "url": "https://www.vietnam.travel/things-to-do/ha-giang-loop-four-day-road-trip"
+        },
+        {
+          "title": "Vietnam Tourism — Hà Giang",
+          "url": "https://www.vietnam.travel/places-to-go/northern-vietnam/ha-giang"
+        },
+        {
+          "title": "Chính phủ — Đề án sắp xếp đơn vị hành chính các cấp năm 2025",
+          "url": "https://xaydungchinhsach.chinhphu.vn/quyet-dinh-so-759-qd-ttg-phe-duyet-de-an-sap-xep-to-chuc-lai-dvhc-cac-cap-va-xay-dung-mo-hinh-to-chuc-chinh-quyen-dia-phuong-2-cap-119250415063742039.htm"
+        }
+      ],
+      "tour": {
+        "name": "Hà Giang trên miền đá — Cung đường 4N3Đ từ Hà Nội",
+        "description": "Tour ghép trọn gói đi bằng ô tô du lịch, dành cho khách muốn trải nghiệm cung Quản Bạ – Yên Minh – Đồng Văn – Mã Pí Lèng – Mèo Vạc mà không tự lái xe máy. Tuyến đường bám theo các điểm được cơ quan du lịch quốc gia giới thiệu; giờ đến có thể thay đổi theo sương mù, mưa, phân luồng hoặc điều kiện an toàn trên đèo.",
+        "destination": {
+          "name": "Hà Giang",
+          "province": "Tuyên Quang",
+          "geo": { "lat": 22.8233, "lng": 104.9836 }
+        },
+        "coverImageUrl": "/images/destination-ha-giang-v1.webp",
+        "images": [],
+        "basePrice": 4790000,
+        "tourType": "GROUP",
+        "priceModel": "PER_PERSON",
+        "departureLocation": "Hà Nội",
+        "meetingPoint": "Nhà hát Lớn Hà Nội, 01 Tràng Tiền, phường Hoàn Kiếm",
+        "meetingTime": "05:30",
+        "minGroupSize": 1,
+        "maxGroupSize": 20,
+        "guideMode": "INCLUDED",
+        "optionalGuidePrice": 0,
+        "durationDays": 4,
+        "durationNights": 3,
+        "included": [
+          "Ô tô du lịch điều hòa và tài xế có kinh nghiệm cung đường miền núi",
+          "03 đêm lưu trú khách sạn hoặc homestay tiêu chuẩn công bố, 02 khách/phòng",
+          "03 bữa sáng và 07 bữa chính theo chương trình",
+          "Vé tham quan các điểm được ghi rõ trong lịch trình",
+          "Hướng dẫn viên tiếng Việt theo đoàn",
+          "Bảo hiểm du lịch nội địa theo hạn mức hợp đồng",
+          "Nước uống 01 chai 500 ml/khách/ngày"
+        ],
+        "excluded": [
+          "Chi phí di chuyển từ nơi ở của khách đến điểm tập trung tại Hà Nội",
+          "Vé thuyền sông Nho Quế khi điểm vận hành đóng vì thời tiết hoặc an toàn; khoản chưa sử dụng được xử lý theo xác nhận thực tế",
+          "Đồ uống, giặt là và chi tiêu cá nhân",
+          "Phụ thu phòng đơn và dịch vụ không ghi trong mục đã bao gồm"
+        ],
+        "packageDetails": {
+          "accommodation": ["01 đêm Yên Minh, 01 đêm Đồng Văn và 01 đêm khu vực Hà Giang/Quản Bạ; khách sạn hoặc homestay có phòng riêng, 02 khách/phòng"],
+          "transport": ["Ô tô du lịch theo quy mô đoàn; khách không tự lái xe trên cung đèo"],
+          "meals": ["03 bữa sáng", "07 bữa chính với món Việt và đặc sản địa phương phù hợp khả năng cung ứng"],
+          "tickets": ["Dinh thự họ Vương", "Cột cờ Lũng Cú", "Các điểm tham quan có thu vé được nêu trong lịch trình"],
+          "insurance": ["Bảo hiểm du lịch nội địa; điều khoản chi tiết gửi cùng xác nhận booking"]
+        },
+        "childPolicy": {
+          "description": "Khách được khai báo CHILD áp dụng 75% giá người lớn, ngủ chung giường với người lớn; ghế ngồi trên xe vẫn được bố trí riêng.",
+          "pricePercentage": 75
+        },
+        "singleRoomSupplement": 950000,
+        "cancellationPolicy": [
+          { "minimumDaysBeforeDeparture": 15, "refundPercentage": 90 },
+          { "minimumDaysBeforeDeparture": 7, "refundPercentage": 70 },
+          { "minimumDaysBeforeDeparture": 3, "refundPercentage": 40 },
+          { "minimumDaysBeforeDeparture": 0, "refundPercentage": 0 }
+        ],
+        "itinerary": [
+          {
+            "dayNumber": 1,
+            "title": "Hà Nội – cửa ngõ Hà Giang – Quản Bạ – Yên Minh",
+            "activities": [
+              { "time": "05:30", "description": "Tập trung tại Nhà hát Lớn Hà Nội, đối chiếu danh sách khách, xếp hành lý và nghe phổ biến quy tắc an toàn trên cung đường miền núi.", "location": { "lat": 21.0243, "lng": 105.8575 } },
+              { "time": "06:00", "description": "Khởi hành bằng ô tô du lịch theo hướng cao tốc và quốc lộ; xe dừng nghỉ kỹ thuật tại điểm phù hợp do trưởng đoàn quyết định.", "location": { "lat": 21.0243, "lng": 105.8575 } },
+              { "time": "11:30", "description": "Ăn trưa tại khu vực thành phố Hà Giang, sau đó tiếp tục theo Quốc lộ 4C vào vùng cao.", "location": { "lat": 22.8233, "lng": 104.9836 } },
+              { "time": "14:30", "description": "Dừng tại khu vực Cổng Trời Quản Bạ khi thời tiết cho phép, quan sát địa hình núi đá và nghe giới thiệu về cửa ngõ Công viên địa chất.", "location": { "lat": 23.064, "lng": 104.994 } },
+              { "time": "16:30", "description": "Tiếp tục qua các đoạn đèo về Yên Minh; tài xế chủ động điều chỉnh tốc độ và điểm dừng theo tình trạng mặt đường.", "location": { "lat": 23.118, "lng": 105.141 } },
+              { "time": "18:30", "description": "Nhận phòng, ăn tối và nghỉ đêm tại Yên Minh; hướng dẫn viên xác nhận giờ báo thức và thời tiết dự kiến ngày tiếp theo.", "location": { "lat": 23.118, "lng": 105.141 } }
+            ]
+          },
+          {
+            "dayNumber": 2,
+            "title": "Yên Minh – Sà Phìn – Lũng Cú – phố cổ Đồng Văn",
+            "activities": [
+              { "time": "06:30", "description": "Ăn sáng, trả phòng và khởi hành sớm để chủ động thời gian trên cung đường có nhiều đoạn đèo hẹp.", "location": { "lat": 23.118, "lng": 105.141 } },
+              { "time": "08:00", "description": "Đi qua dốc Chín Khoanh; xe chỉ dừng tại vị trí được phép và đủ an toàn, không dừng tùy tiện trên khúc cua.", "location": { "lat": 23.185, "lng": 105.207 } },
+              { "time": "09:30", "description": "Tham quan Dinh thự họ Vương tại Sà Phìn, tìm hiểu dấu ấn kiến trúc và lịch sử địa phương tại khu vực đang mở cửa.", "location": { "lat": 23.252, "lng": 105.267 } },
+              { "time": "11:45", "description": "Ăn trưa trên tuyến, nghỉ ngắn trước khi di chuyển tới khu vực cực Bắc.", "location": { "lat": 23.278, "lng": 105.363 } },
+              { "time": "14:00", "description": "Tham quan Cột cờ Lũng Cú; khách tự cân nhắc thể lực khi leo bậc và tuân thủ hướng dẫn tại khu vực biên giới.", "location": { "lat": 23.363, "lng": 105.314 } },
+              { "time": "17:00", "description": "Về Đồng Văn nhận phòng, đi bộ khu phố cổ trong phạm vi hướng dẫn, ăn tối và nghỉ đêm.", "location": { "lat": 23.278, "lng": 105.363 } }
+            ]
+          },
+          {
+            "dayNumber": 3,
+            "title": "Đồng Văn – Mã Pí Lèng – sông Nho Quế – Mèo Vạc",
+            "activities": [
+              { "time": "06:30", "description": "Ăn sáng và trả phòng; đoàn kiểm tra lại hành lý trước khi vào cung Đồng Văn – Mèo Vạc.", "location": { "lat": 23.278, "lng": 105.363 } },
+              { "time": "08:00", "description": "Di chuyển qua đèo Mã Pí Lèng, dừng ở điểm quan sát hợp pháp khi điều kiện thời tiết và bãi đỗ cho phép; tuyệt đối không đứng dưới lòng đường để chụp ảnh.", "location": { "lat": 23.245, "lng": 105.41 } },
+              { "time": "10:00", "description": "Xuống khu vực bến sông Nho Quế. Hoạt động đi thuyền chỉ thực hiện khi đơn vị vận hành địa phương xác nhận đủ điều kiện an toàn.", "location": { "lat": 23.207, "lng": 105.454 } },
+              { "time": "12:30", "description": "Ăn trưa tại Mèo Vạc, nghỉ ngắn và nghe hướng dẫn viên cập nhật cung đường buổi chiều.", "location": { "lat": 23.164, "lng": 105.409 } },
+              { "time": "14:30", "description": "Rời Mèo Vạc theo tuyến trở về khu vực trung tâm Hà Giang hoặc Quản Bạ, dừng nghỉ kỹ thuật theo điều hành thực tế.", "location": { "lat": 23.164, "lng": 105.409 } },
+              { "time": "18:30", "description": "Nhận phòng, ăn tối và nghỉ đêm; trưởng đoàn chốt giờ khởi hành về Hà Nội vào sáng hôm sau.", "location": { "lat": 22.8233, "lng": 104.9836 } }
+            ]
+          },
+          {
+            "dayNumber": 4,
+            "title": "Hà Giang – Hà Nội, khép lại cung đường miền đá",
+            "activities": [
+              { "time": "06:30", "description": "Ăn sáng, trả phòng và kiểm tra hành lý trước khi rời Hà Giang.", "location": { "lat": 22.8233, "lng": 104.9836 } },
+              { "time": "07:30", "description": "Khởi hành về Hà Nội; hướng dẫn viên tổng kết các điểm đã đi và hỗ trợ khách kiểm tra đồ thất lạc trên xe.", "location": { "lat": 22.8233, "lng": 104.9836 } },
+              { "time": "11:30", "description": "Ăn trưa trên tuyến tại nhà hàng được điều hành xác nhận; thời điểm có thể thay đổi theo tiến độ giao thông.", "location": { "lat": 21.705, "lng": 105.397 } },
+              { "time": "13:00", "description": "Tiếp tục về Hà Nội, có một điểm dừng nghỉ kỹ thuật dự kiến trước khi vào nội đô.", "location": { "lat": 21.358, "lng": 105.544 } },
+              { "time": "17:30", "description": "Về tới khu vực trung tâm Hà Nội trong điều kiện giao thông bình thường; giờ thực tế phụ thuộc phân luồng và thời tiết.", "location": { "lat": 21.0243, "lng": 105.8575 } },
+              { "time": "18:00", "description": "Trả khách tại Nhà hát Lớn Hà Nội, kết thúc dịch vụ sau khi trưởng đoàn kiểm tra khoang hành lý.", "location": { "lat": 21.0243, "lng": 105.8575 } }
+            ]
+          }
+        ]
+      },
+      "operations": {
+        "publicationStatus": "DRAFT",
+        "regionKey": "NORTH",
+        "firstDepartureOnOrAfter": "2026-09-12",
+        "dayOfWeek": "SATURDAY",
+        "occurrences": 8,
+        "intervalWeeks": 2,
+        "capacity": 20
+      }
+    },
+    {
+      "code": "VKP-HOIAN-MYSON-3D2N-GROUP",
+      "sources": [
+        {
+          "title": "UNESCO World Heritage Centre — Hoi An Ancient Town",
+          "url": "https://whc.unesco.org/en/list/948/"
+        },
+        {
+          "title": "UNESCO World Heritage Centre — My Son Sanctuary",
+          "url": "https://whc.unesco.org/en/list/949/"
+        },
+        {
+          "title": "Vietnam Tourism — Trà Quế Vegetable Village",
+          "url": "https://www.vietnam.travel/things-to-do/tra-que-vegetable-village-hoi-an-ultimate-%E2%80%9Cgreen%E2%80%9D-trip"
+        },
+        {
+          "title": "Chính phủ — Hợp nhất Quảng Nam và Đà Nẵng",
+          "url": "https://xaydungchinhsach.chinhphu.vn/hop-nhat-quang-nam-da-nang-thanh-pho-moi-co-23-phuong-70-xa-va-1-dac-khu-hoang-sa-119250426191156013.htm"
+        }
+      ],
+      "tour": {
+        "name": "Hội An & Mỹ Sơn — Từ Đà Nẵng về miền di sản 3N2Đ",
+        "description": "Tour ghép bắt đầu tại Đà Nẵng, kết nối hai Di sản Thế giới UNESCO là Phố cổ Hội An và Thánh địa Mỹ Sơn, đồng thời dành thời gian tiếp cận đời sống làng Trà Quế. Khách tự túc vé máy bay hoặc tàu đến Đà Nẵng. Lịch tham quan phố cổ được điều chỉnh hợp lý khi có mưa lớn, lễ hội hoặc phân luồng đông người.",
+        "destination": {
+          "name": "Hội An",
+          "province": "Thành phố Đà Nẵng",
+          "geo": { "lat": 15.8801, "lng": 108.338 }
+        },
+        "coverImageUrl": "/images/destination-hoi-an-v1.webp",
+        "images": [],
+        "basePrice": 3890000,
+        "tourType": "GROUP",
+        "priceModel": "PER_PERSON",
+        "departureLocation": "Đà Nẵng",
+        "meetingPoint": "Sảnh đến quốc nội, Sân bay quốc tế Đà Nẵng",
+        "meetingTime": "09:00",
+        "minGroupSize": 1,
+        "maxGroupSize": 24,
+        "guideMode": "INCLUDED",
+        "optionalGuidePrice": 0,
+        "durationDays": 3,
+        "durationNights": 2,
+        "included": [
+          "Xe du lịch điều hòa từ điểm tập trung tại Đà Nẵng và theo chương trình",
+          "02 đêm khách sạn tiêu chuẩn 3 sao hoặc tương đương tại Hội An, 02 khách/phòng",
+          "02 bữa sáng và 05 bữa chính theo chương trình",
+          "Vé tham quan Phố cổ Hội An, Thánh địa Mỹ Sơn và trải nghiệm ghi rõ",
+          "Hướng dẫn viên tiếng Việt theo đoàn",
+          "Bảo hiểm du lịch nội địa theo hạn mức hợp đồng",
+          "Nước uống 01 chai 500 ml/khách/ngày"
+        ],
+        "excluded": [
+          "Vé máy bay hoặc tàu đến và rời Đà Nẵng",
+          "Chi phí thuyền hoặc thả hoa đăng tự phát ngoài chương trình",
+          "Đồ uống gọi riêng, giặt là và chi tiêu cá nhân",
+          "Phụ thu phòng đơn và dịch vụ không ghi trong mục đã bao gồm"
+        ],
+        "packageDetails": {
+          "accommodation": ["02 đêm khách sạn tiêu chuẩn 3 sao hoặc tương đương tại Hội An; phòng đôi hoặc hai giường, 02 khách/phòng"],
+          "transport": ["Xe du lịch điều hòa theo quy mô đoàn trên tuyến Đà Nẵng – Hội An – Mỹ Sơn"],
+          "meals": ["02 bữa sáng", "05 bữa chính với món miền Trung và món Việt"],
+          "tickets": ["Gói tham quan Phố cổ Hội An", "Thánh địa Mỹ Sơn", "Hoạt động trải nghiệm tại Trà Quế theo xác nhận vận hành"],
+          "insurance": ["Bảo hiểm du lịch nội địa; điều khoản gửi cùng xác nhận booking"]
+        },
+        "childPolicy": {
+          "description": "Khách được khai báo CHILD áp dụng 75% giá người lớn, ngủ chung giường với người lớn; ghế ngồi trên xe được bố trí riêng.",
+          "pricePercentage": 75
+        },
+        "singleRoomSupplement": 900000,
+        "cancellationPolicy": [
+          { "minimumDaysBeforeDeparture": 15, "refundPercentage": 90 },
+          { "minimumDaysBeforeDeparture": 7, "refundPercentage": 70 },
+          { "minimumDaysBeforeDeparture": 3, "refundPercentage": 40 },
+          { "minimumDaysBeforeDeparture": 0, "refundPercentage": 0 }
+        ],
+        "itinerary": [
+          {
+            "dayNumber": 1,
+            "title": "Đà Nẵng – Hội An, bước vào phố cảng xưa",
+            "activities": [
+              { "time": "09:00", "description": "Đón đoàn tại sảnh đến quốc nội Sân bay Đà Nẵng, đối chiếu booking và tập kết hành lý. Tour không bao gồm vé máy bay của khách.", "location": { "lat": 16.0439, "lng": 108.1994 } },
+              { "time": "10:00", "description": "Di chuyển về Hội An, nghe giới thiệu khái quát về vùng cửa sông Thu Bồn và lịch sử phố cảng.", "location": { "lat": 15.8801, "lng": 108.338 } },
+              { "time": "11:30", "description": "Ăn trưa với món miền Trung, sau đó gửi hành lý hoặc nhận phòng theo giờ phục vụ của khách sạn.", "location": { "lat": 15.8801, "lng": 108.338 } },
+              { "time": "15:00", "description": "Bắt đầu tuyến đi bộ Phố cổ Hội An được UNESCO ghi danh; hướng dẫn viên giải thích cấu trúc phố, nhà buôn và không gian tín ngưỡng của thương cảng.", "location": { "lat": 15.877, "lng": 108.329 } },
+              { "time": "16:00", "description": "Tham quan Chùa Cầu và nhà cổ Tấn Ký theo tình trạng mở cửa thực tế; đoàn di chuyển theo nhóm để hạn chế ảnh hưởng cư dân địa phương.", "location": { "lat": 15.8772, "lng": 108.3261 } },
+              { "time": "18:30", "description": "Ăn tối, tự do ngắm phố lên đèn trong khung giờ thống nhất và trở về khách sạn đúng giờ điểm danh.", "location": { "lat": 15.877, "lng": 108.329 } }
+            ]
+          },
+          {
+            "dayNumber": 2,
+            "title": "Thánh địa Mỹ Sơn và chiều xanh làng Trà Quế",
+            "activities": [
+              { "time": "06:30", "description": "Ăn sáng và khởi hành sớm tới Mỹ Sơn để giảm thời gian di chuyển dưới nắng; mang giày đi bộ và nước cá nhân.", "location": { "lat": 15.8801, "lng": 108.338 } },
+              { "time": "08:15", "description": "Tham quan Thánh địa Mỹ Sơn, quần thể đền tháp Chăm được UNESCO ghi danh; tuyến tham quan tuân theo vùng mở cửa và hướng dẫn bảo tồn tại chỗ.", "location": { "lat": 15.773, "lng": 108.123 } },
+              { "time": "11:30", "description": "Ăn trưa tại nhà hàng trên đường trở lại Hội An, nghỉ ngắn và kiểm tra lại thời tiết trước hoạt động ngoài trời buổi chiều.", "location": { "lat": 15.8, "lng": 108.25 } },
+              { "time": "14:30", "description": "Thăm làng rau Trà Quế, nghe người địa phương giới thiệu cách canh tác và các loại rau thơm gắn với ẩm thực Hội An.", "location": { "lat": 15.903, "lng": 108.333 } },
+              { "time": "16:00", "description": "Tham gia hoạt động trải nghiệm nhẹ tại vườn theo điều kiện thời tiết và khả năng phục vụ; khách có vấn đề vận động được bố trí phương án quan sát phù hợp.", "location": { "lat": 15.903, "lng": 108.333 } },
+              { "time": "18:30", "description": "Ăn tối tại Hội An và nghỉ ngơi; hướng dẫn viên thông báo giờ trả phòng ngày cuối.", "location": { "lat": 15.8801, "lng": 108.338 } }
+            ]
+          },
+          {
+            "dayNumber": 3,
+            "title": "Hội quán Phúc Kiến – chợ Hội An – trở lại Đà Nẵng",
+            "activities": [
+              { "time": "07:00", "description": "Ăn sáng, trả phòng và gửi hành lý lên xe; kiểm tra giấy tờ tùy thân trước khi rời khách sạn.", "location": { "lat": 15.8801, "lng": 108.338 } },
+              { "time": "08:30", "description": "Tham quan Hội quán Phúc Kiến, tìm hiểu dấu ấn cộng đồng người Hoa trong lịch sử thương cảng; giữ trang phục và âm lượng phù hợp không gian tín ngưỡng.", "location": { "lat": 15.8771, "lng": 108.3302 } },
+              { "time": "10:00", "description": "Đi bộ qua chợ Hội An để quan sát nguyên liệu địa phương và nhịp buôn bán buổi sáng; mua sắm là hoạt động tự nguyện, khách tự thanh toán.", "location": { "lat": 15.8765, "lng": 108.332 } },
+              { "time": "11:45", "description": "Ăn trưa, tổng kết hành trình và xác nhận thông tin chuyến đi tiếp theo của từng khách.", "location": { "lat": 15.8801, "lng": 108.338 } },
+              { "time": "13:30", "description": "Khởi hành về Đà Nẵng; xe đi theo tuyến phù hợp tình trạng giao thông tại thời điểm vận hành.", "location": { "lat": 15.8801, "lng": 108.338 } },
+              { "time": "15:00", "description": "Trả đoàn tại Sân bay quốc tế Đà Nẵng và kết thúc tour. Khách tự chịu trách nhiệm đặt chuyến bay đủ thời gian làm thủ tục.", "location": { "lat": 16.0439, "lng": 108.1994 } }
+            ]
+          }
+        ]
+      },
+      "operations": {
+        "publicationStatus": "DRAFT",
+        "regionKey": "CENTRAL",
+        "firstDepartureOnOrAfter": "2026-09-12",
+        "dayOfWeek": "SATURDAY",
+        "occurrences": 8,
+        "intervalWeeks": 2,
+        "capacity": 24
+      }
+    },
+    {
+      "code": "VKP-PHUQUOC-4D3N-PRIVATE",
+      "sources": [
+        {
+          "title": "Vietnam Tourism — Island hopping in Phu Quoc",
+          "url": "https://www.vietnam.travel/things-to-do/island-hopping-in-phu-quoc"
+        },
+        {
+          "title": "Vietnam Tourism — Phu Quoc: a laid-back leisure getaway",
+          "url": "https://www.vietnam.travel/things-to-do/phu-quoc-island-laid-back-leisure-getaway"
+        },
+        {
+          "title": "Vietnam Tourism — A day in Phu Quoc",
+          "url": "https://www.vietnam.travel/things-to-do/a-day-in-phu-quoc"
+        },
+        {
+          "title": "Nghị quyết sắp xếp đơn vị hành chính tỉnh An Giang năm 2025",
+          "url": "https://xaydungchinhsach.chinhphu.vn/toan-van-nghi-quyet-so-1654-nq-ubtvqh15-sap-xep-cac-dvhc-cap-xa-cua-tinh-an-giang-nam-2025-119250616191813652.htm"
+        }
+      ],
+      "tour": {
+        "name": "Phú Quốc riêng tư — Biển xanh và nhịp đảo 4N3Đ",
+        "description": "Gói tour riêng cho một nhóm từ 2 đến 4 khách, bắt đầu và kết thúc tại sân bay Phú Quốc. Giá tính theo cả nhóm, không ghép người lạ. Vé máy bay không nằm trong gói. Hoạt động cano và lặn ngắm san hô chỉ vận hành khi thời tiết, cảng vụ và đơn vị dịch vụ xác nhận an toàn; phương án thay thế tương đương phải được thông báo cho khách.",
+        "destination": {
+          "name": "Phú Quốc",
+          "province": "An Giang",
+          "geo": { "lat": 10.2167, "lng": 103.95 }
+        },
+        "coverImageUrl": "/images/destination-phu-quoc-v1.webp",
+        "images": [],
+        "basePrice": 14900000,
+        "tourType": "PRIVATE",
+        "priceModel": "PER_GROUP",
+        "departureLocation": "Phú Quốc",
+        "meetingPoint": "Sảnh đến quốc nội, Sân bay quốc tế Phú Quốc",
+        "meetingTime": "10:00",
+        "minGroupSize": 2,
+        "maxGroupSize": 4,
+        "guideMode": "OPTIONAL",
+        "optionalGuidePrice": 1800000,
+        "durationDays": 4,
+        "durationNights": 3,
+        "included": [
+          "Xe riêng đón và tiễn sân bay Phú Quốc, phục vụ theo lịch trình",
+          "03 đêm khách sạn tiêu chuẩn 3 sao hoặc tương đương, tối đa 02 phòng cho nhóm",
+          "03 bữa sáng và 05 bữa chính theo chương trình",
+          "Cano ghép tiêu chuẩn trong ngày tham quan đảo khi đủ điều kiện vận hành",
+          "Vé tham quan và dụng cụ lặn ngắm san hô cơ bản theo chương trình",
+          "Bảo hiểm du lịch nội địa theo hạn mức hợp đồng",
+          "Nước uống 01 chai 500 ml/khách/ngày"
+        ],
+        "excluded": [
+          "Vé máy bay đến và rời Phú Quốc",
+          "Hướng dẫn viên; khách có thể chọn thêm với mức giá công bố cho toàn hành trình",
+          "Phụ thu phát sinh khi nhóm yêu cầu thêm phòng ngoài tối đa 02 phòng của gói",
+          "Đồ uống gọi riêng, trò chơi biển, giặt là và chi tiêu cá nhân",
+          "Dịch vụ không ghi trong mục đã bao gồm"
+        ],
+        "packageDetails": {
+          "accommodation": ["03 đêm khách sạn tiêu chuẩn 3 sao hoặc tương đương tại khu vực Dương Đông; tối đa 02 phòng cho nhóm 2–4 khách"],
+          "transport": ["Xe riêng theo lịch trình trên đảo", "Cano ghép tiêu chuẩn ngày tham quan cụm đảo phía nam khi được phép vận hành"],
+          "meals": ["03 bữa sáng", "05 bữa chính; có một bữa trưa trong ngày tham quan đảo"],
+          "tickets": ["Chi phí vào điểm tham quan được ghi trong lịch trình", "Dụng cụ lặn ngắm san hô cơ bản khi hoạt động đủ điều kiện an toàn"],
+          "insurance": ["Bảo hiểm du lịch nội địa; điều khoản gửi cùng xác nhận booking"]
+        },
+        "childPolicy": {
+          "description": "Vì tour tính giá theo nhóm 2–4 khách, khách CHILD vẫn được tính vào quy mô nhóm nhưng không làm thay đổi giá gói; các dịch vụ phát sinh theo độ tuổi sẽ được xác nhận trước thanh toán.",
+          "pricePercentage": 100
+        },
+        "singleRoomSupplement": 0,
+        "cancellationPolicy": [
+          { "minimumDaysBeforeDeparture": 21, "refundPercentage": 90 },
+          { "minimumDaysBeforeDeparture": 10, "refundPercentage": 70 },
+          { "minimumDaysBeforeDeparture": 5, "refundPercentage": 40 },
+          { "minimumDaysBeforeDeparture": 0, "refundPercentage": 0 }
+        ],
+        "itinerary": [
+          {
+            "dayNumber": 1,
+            "title": "Đón tại Phú Quốc – Dinh Cậu – chợ đêm",
+            "activities": [
+              { "time": "10:00", "description": "Tài xế đón riêng tại sảnh đến quốc nội Sân bay Phú Quốc theo thông tin chuyến bay khách đã cung cấp; vé máy bay không nằm trong gói.", "location": { "lat": 10.1698, "lng": 103.9931 } },
+              { "time": "11:30", "description": "Ăn trưa tại khu vực Dương Đông, nghe giới thiệu lịch vận hành và phương án liên lạc khi nhóm không chọn hướng dẫn viên.", "location": { "lat": 10.2167, "lng": 103.95 } },
+              { "time": "14:00", "description": "Nhận phòng hoặc gửi hành lý theo giờ phục vụ của khách sạn; nghỉ ngơi sau hành trình đến đảo.", "location": { "lat": 10.2167, "lng": 103.95 } },
+              { "time": "16:30", "description": "Xe đưa nhóm tới Dinh Cậu, không gian tín ngưỡng ven biển gắn với cư dân đảo; khách giữ trang phục và trật tự phù hợp.", "location": { "lat": 10.2166, "lng": 103.9596 } },
+              { "time": "18:00", "description": "Ăn tối, sau đó tự do khám phá chợ đêm Phú Quốc trong khung giờ đã thống nhất với tài xế.", "location": { "lat": 10.2138, "lng": 103.9603 } },
+              { "time": "21:00", "description": "Xe đón về khách sạn; nhóm xác nhận tình trạng thời tiết và giờ khởi hành đi cảng vào sáng hôm sau.", "location": { "lat": 10.2167, "lng": 103.95 } }
+            ]
+          },
+          {
+            "dayNumber": 2,
+            "title": "Cụm đảo phía nam – ngắm san hô có kiểm soát",
+            "activities": [
+              { "time": "06:30", "description": "Ăn sáng và chuẩn bị đồ chống nắng, thuốc cá nhân; điều hành xác nhận lần cuối tình trạng cano và thời tiết.", "location": { "lat": 10.2167, "lng": 103.95 } },
+              { "time": "07:30", "description": "Xe riêng đưa nhóm tới khu vực cảng An Thới, làm thủ tục lên cano ghép với đơn vị vận hành được xác nhận.", "location": { "lat": 10.026, "lng": 104.005 } },
+              { "time": "09:00", "description": "Tham quan cụm đảo phía nam theo tuyến được phép trong ngày, có thể gồm Móng Tay, Gầm Ghì hoặc Mây Rút tùy điều kiện biển và phân luồng của đơn vị khai thác.", "location": { "lat": 9.998, "lng": 103.96 } },
+              { "time": "10:30", "description": "Lặn ngắm san hô bằng ống thở tại điểm được đơn vị vận hành chọn; bắt buộc mặc áo phao và không chạm, bẻ hoặc mang san hô rời khỏi môi trường tự nhiên.", "location": { "lat": 9.995, "lng": 103.95 } },
+              { "time": "12:00", "description": "Ăn trưa theo chương trình và nghỉ ngắn; thực đơn phụ thuộc khả năng phục vụ thực tế trên tuyến đảo.", "location": { "lat": 9.997, "lng": 103.963 } },
+              { "time": "16:30", "description": "Trở lại cảng, xe đưa nhóm về khách sạn nghỉ ngơi. Nếu cano bị hủy vì an toàn, điều hành áp dụng phương án thay thế đã thống nhất với khách.", "location": { "lat": 10.026, "lng": 104.005 } }
+            ]
+          },
+          {
+            "dayNumber": 3,
+            "title": "Bãi Sao – Hàm Ninh – hoàng hôn bờ tây",
+            "activities": [
+              { "time": "07:00", "description": "Ăn sáng tại khách sạn; xe đón nhóm theo giờ đã xác nhận.", "location": { "lat": 10.2167, "lng": 103.95 } },
+              { "time": "08:30", "description": "Di chuyển tới Bãi Sao, dành thời gian tắm biển tại khu vực được phép và tuân thủ cảnh báo sóng, gió tại chỗ.", "location": { "lat": 10.057, "lng": 104.036 } },
+              { "time": "11:30", "description": "Ăn trưa tại phía nam đảo, nghỉ ngắn trước khi tiếp tục về bờ đông.", "location": { "lat": 10.08, "lng": 104.02 } },
+              { "time": "14:00", "description": "Thăm khu vực làng chài Hàm Ninh để quan sát đời sống ven biển; mua hải sản hoặc quà địa phương là lựa chọn tự nguyện và khách tự thanh toán.", "location": { "lat": 10.1801, "lng": 104.056 } },
+              { "time": "16:45", "description": "Về bờ tây ngắm hoàng hôn tại khu vực Bãi Trường khi thời tiết cho phép; giờ hoàng hôn thay đổi theo mùa.", "location": { "lat": 10.1902, "lng": 103.967 } },
+              { "time": "18:30", "description": "Ăn tối và trở về khách sạn; thời gian còn lại tự do, xe ngoài lịch trình không nằm trong gói.", "location": { "lat": 10.2167, "lng": 103.95 } }
+            ]
+          },
+          {
+            "dayNumber": 4,
+            "title": "Sáng tự do – tiễn sân bay Phú Quốc",
+            "activities": [
+              { "time": "07:00", "description": "Ăn sáng tại khách sạn và kiểm tra giờ bay; khách chủ động thông báo ngay nếu hãng hàng không thay đổi lịch.", "location": { "lat": 10.2167, "lng": 103.95 } },
+              { "time": "08:00", "description": "Tự do nghỉ ngơi, đi bộ khu vực gần khách sạn hoặc mua sắm trong phạm vi thời gian cho phép; chi phí cá nhân không nằm trong gói.", "location": { "lat": 10.2167, "lng": 103.95 } },
+              { "time": "10:00", "description": "Trả phòng theo quy định, kiểm tra minibar và hành lý trước khi rời khách sạn.", "location": { "lat": 10.2167, "lng": 103.95 } },
+              { "time": "10:30", "description": "Xe riêng đón nhóm đi Sân bay quốc tế Phú Quốc; giờ đón được điều chỉnh theo chuyến bay thực tế đã cung cấp.", "location": { "lat": 10.2167, "lng": 103.95 } },
+              { "time": "11:15", "description": "Hỗ trợ dỡ hành lý tại sảnh đi quốc nội; khách tự làm thủ tục hàng không và tự chịu chi phí hành lý vượt mức.", "location": { "lat": 10.1698, "lng": 103.9931 } },
+              { "time": "11:30", "description": "Kết thúc gói dịch vụ sau khi tài xế xác nhận nhóm đã nhận đủ hành lý.", "location": { "lat": 10.1698, "lng": 103.9931 } }
+            ]
+          }
+        ]
+      },
+      "operations": null
+    }
+  ]
+}

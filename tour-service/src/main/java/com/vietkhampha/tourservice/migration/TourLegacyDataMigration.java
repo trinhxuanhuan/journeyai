@@ -44,6 +44,9 @@ public class TourLegacyDataMigration implements ApplicationRunner {
                 new Document(),
                 List.of(
                         new Document("$set", new Document()
+                                .append("destination.name", new Document("$ifNull", List.of(
+                                        "$destination.name", "$destination.province"
+                                )))
                                 .append("tourType", new Document("$ifNull", List.of("$tourType", "GROUP")))
                                 .append("priceModel", new Document("$ifNull", List.of("$priceModel", "PER_PERSON")))
                                 .append("departureLocation", new Document("$ifNull", List.of(

@@ -14,6 +14,7 @@ public class TourSearchItemDto {
     private BigDecimal avgRating;
     private String tourType;
     private String departureLocation;
+    private String destinationName;
     private Instant nearestDepartureDate;
     private boolean hasAvailableSlot;
 
@@ -26,6 +27,7 @@ public class TourSearchItemDto {
         dto.avgRating = doc.getAvgRating();
         dto.tourType = doc.getTourType();
         dto.departureLocation = doc.getDepartureLocation();
+        dto.destinationName = doc.getDestinationName();
         dto.nearestDepartureDate = doc.getNearestDepartureDate();
         dto.hasAvailableSlot = doc.isHasAvailableSlot();
         return dto;
@@ -38,6 +40,7 @@ public class TourSearchItemDto {
     public BigDecimal getAvgRating() { return avgRating; }
     public String getTourType() { return tourType; }
     public String getDepartureLocation() { return departureLocation; }
+    public String getDestinationName() { return destinationName; }
     public Instant getNearestDepartureDate() { return nearestDepartureDate; }
     public boolean isHasAvailableSlot() { return hasAvailableSlot; }
 }

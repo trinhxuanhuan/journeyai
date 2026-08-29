@@ -26,6 +26,9 @@ public class TourSearchDocument {
     private String description;
 
     @Field(type = FieldType.Keyword)
+    private String destinationName;
+
+    @Field(type = FieldType.Keyword)
     private String province;
 
     @GeoPointField
@@ -63,12 +66,14 @@ public class TourSearchDocument {
 
     protected TourSearchDocument() {}
 
-    public TourSearchDocument(String id, String name, String description, String province, GeoPoint location,
+    public TourSearchDocument(String id, String name, String description, String destinationName,
+                              String province, GeoPoint location,
                               BigDecimal basePrice, String coverImageUrl, BigDecimal avgRating, String status,
                               String tourType, String departureLocation) {
         this.id = id;
         this.name = name;
         this.description = description;
+        this.destinationName = destinationName;
         this.province = province;
         this.location = location;
         this.basePrice = basePrice;
@@ -83,6 +88,9 @@ public class TourSearchDocument {
     public String getId() { return id; }
     public String getName() { return name; }
     public String getDescription() { return description; }
+    public String getDestinationName() {
+        return destinationName == null || destinationName.isBlank() ? province : destinationName;
+    }
     public String getProvince() { return province; }
     public GeoPoint getLocation() { return location; }
     public BigDecimal getBasePrice() { return basePrice; }

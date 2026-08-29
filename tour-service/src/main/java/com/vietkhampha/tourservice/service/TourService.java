@@ -226,7 +226,11 @@ public class TourService {
     }
 
     private Tour.Destination toDestination(TourRequest.DestinationDto dto) {
-        return new Tour.Destination(dto.getProvince(), new Tour.Geo(dto.getGeo().getLat(), dto.getGeo().getLng()));
+        return new Tour.Destination(
+                normalizeOrDefault(dto.getName(), dto.getProvince()),
+                dto.getProvince().trim(),
+                new Tour.Geo(dto.getGeo().getLat(), dto.getGeo().getLng())
+        );
     }
 
     private List<Tour.ItineraryDay> toItinerary(List<TourRequest.ItineraryDayDto> dtos) {

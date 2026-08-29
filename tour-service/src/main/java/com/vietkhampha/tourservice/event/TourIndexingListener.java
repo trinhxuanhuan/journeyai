@@ -60,6 +60,7 @@ public class TourIndexingListener {
                 tour.getId(),
                 tour.getName(),
                 tour.getDescription(),
+                tour.getDestination().getName(),
                 tour.getDestination().getProvince(),
                 geoPoint,
                 tour.getBasePrice(),

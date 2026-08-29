@@ -44,7 +44,11 @@ public class TourSearchService {
         }
 
         if (destination != null && !destination.isBlank()) {
-            boolQuery.filter(f -> f.term(t -> t.field("province").value(destination)));
+            boolQuery.filter(f -> f.bool(destinationQuery -> destinationQuery
+                    .should(s -> s.term(t -> t.field("destinationName").value(destination)))
+                    .should(s -> s.term(t -> t.field("province").value(destination)))
+                    .minimumShouldMatch("1")
+            ));
         }
 
         if (tourType != null && !tourType.isBlank()) {
