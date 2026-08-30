@@ -9,10 +9,15 @@ import com.vietkhampha.paymentservice.service.PaymentService;
 import com.vietkhampha.paymentservice.vnpay.VNPayService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.util.UriComponentsBuilder;
 
+import java.net.URI;
 import java.util.Map;
 
 @RestController
@@ -25,15 +30,18 @@ public class VNPayWebhookController {
     private final PaymentRepository paymentRepository;
     private final PaymentLogRepository paymentLogRepository;
     private final ObjectMapper objectMapper;
+    private final String frontendPaymentResultUrl;
 
     public VNPayWebhookController(VNPayService vnPayService, PaymentService paymentService,
                                   PaymentRepository paymentRepository, PaymentLogRepository paymentLogRepository,
-                                  ObjectMapper objectMapper) {
+                                  ObjectMapper objectMapper,
+                                  @Value("${app.frontend.payment-result-url}") String frontendPaymentResultUrl) {
         this.vnPayService = vnPayService;
         this.paymentService = paymentService;
         this.paymentRepository = paymentRepository;
         this.paymentLogRepository = paymentLogRepository;
         this.objectMapper = objectMapper;
+        this.frontendPaymentResultUrl = requireAbsoluteHttpUrl(frontendPaymentResultUrl);
     }
     @GetMapping("/v1/payments/webhooks/vnpay")
     public VNPayIpnResponse handleIpn(@RequestParam Map<String, String> allParams) {
@@ -49,17 +57,27 @@ public class VNPayWebhookController {
         }
     }
     @GetMapping("/v1/payments/vnpay-return")
-    public Map<String, Object> handleReturn(@RequestParam Map<String, String> allParams) throws Exception {
+    public ResponseEntity<Void> handleReturn(@RequestParam Map<String, String> allParams) throws Exception {
         logRawPayload(allParams, "RETURN_REDIRECT");
 
         boolean validChecksum = vnPayService.verifyChecksum(allParams);
         boolean success = validChecksum && "00".equals(allParams.get("vnp_ResponseCode"));
+        String gatewayResult = !validChecksum ? "invalid" : success ? "success" : "failed";
 
-        return Map.of(
-                "success", success,
-                "validChecksum", validChecksum,
-                "message", success ? "Thanh toan thanh cong, vui long doi xac nhan" : "Thanh toan khong thanh cong"
-        );
+        UriComponentsBuilder redirect = UriComponentsBuilder
+                .fromUriString(frontendPaymentResultUrl)
+                .queryParam("gatewayResult", gatewayResult);
+
+        String txnRef = allParams.get("vnp_TxnRef");
+        if (validChecksum && txnRef != null && !txnRef.isBlank()) {
+            paymentRepository.findByGatewayTransactionRef(txnRef).ifPresent(payment -> redirect
+                    .queryParam("paymentId", payment.getId())
+                    .queryParam("bookingId", payment.getBookingId()));
+        }
+
+        return ResponseEntity.status(HttpStatus.FOUND)
+                .location(redirect.build().encode().toUri())
+                .build();
     }
 
     private void logRawPayload(Map<String, String> allParams, String source) throws Exception {
@@ -71,6 +89,15 @@ public class VNPayWebhookController {
             } catch (Exception ignored) {
             }
         });
+    }
+
+    private static String requireAbsoluteHttpUrl(String value) {
+        URI uri = URI.create(value);
+        if (!uri.isAbsolute() || !("http".equalsIgnoreCase(uri.getScheme())
+                || "https".equalsIgnoreCase(uri.getScheme()))) {
+            throw new IllegalArgumentException("app.frontend.payment-result-url must be an absolute HTTP(S) URL");
+        }
+        return uri.toString();
     }
 
 }

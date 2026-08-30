@@ -243,6 +243,7 @@ services:
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       VNPAY_TMN_CODE: ${VNPAY_TMN_CODE}
       VNPAY_HASH_SECRET: ${VNPAY_HASH_SECRET}
+      FRONTEND_BASE_URL: ${FRONTEND_BASE_URL:-http://localhost:3000}
       BOOKING_SERVICE_BASE_URL: http://booking-service:8080
     expose:
       - "8080"
