@@ -193,7 +193,7 @@ Field `generatedItineraryId` trong request cũ được bỏ qua/deprecated. AI 
 | `POST` | `/v1/payments` | Chủ Booking | Khởi tạo VNPay từ giá snapshot của Booking |
 | `GET` | `/v1/payments/{paymentId}` | Chủ Payment | Đọc trạng thái payment |
 | `GET` | `/v1/payments/webhooks/vnpay` | VNPay | IPN có kiểm tra chữ ký |
-| `GET` | `/v1/payments/vnpay-return` | Public | Return URL sau thanh toán |
+| `GET` | `/v1/payments/vnpay-return` | Public | Xác minh dữ liệu return và redirect `302` về FE `/thanh-toan/ket-qua`; FE vẫn đọc trạng thái chuẩn qua `GET /v1/payments/{paymentId}` |
 
 Cancellation event được xử lý qua inbox idempotent; bảng refund chỉ cho phép một refund trên mỗi payment. Không gọi API hoàn tiền từ FE.
 
