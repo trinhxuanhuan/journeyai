@@ -126,12 +126,16 @@ public class TourRequest {
     public void setItinerary(List<ItineraryDayDto> itinerary) { this.itinerary = itinerary; }
 
     public static class DestinationDto {
+        private String name;
+
         @NotBlank(message = "Tinh/thanh pho khong duoc de trong")
         private String province;
         @NotNull
         @Valid
         private GeoDto geo;
 
+        public String getName() { return name; }
+        public void setName(String name) { this.name = name; }
         public String getProvince() { return province; }
         public void setProvince(String province) { this.province = province; }
         public GeoDto getGeo() { return geo; }

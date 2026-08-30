@@ -25,13 +25,14 @@ Ràng buộc MVP:
 - `GROUP` chỉ dùng `PER_PERSON` và `INCLUDED`.
 - `PRIVATE` dùng `PER_PERSON` hoặc `PER_GROUP`; không giữ shared capacity.
 - Mỗi Tour chỉ có một `departureLocation`. Cùng hành trình nhưng khác nơi khởi hành phải tạo package Tour khác.
+- `destination.name` là tên điểm đến du lịch hiển thị cho khách; `destination.province` là tỉnh/thành hành chính hiện hành. Dữ liệu cũ thiếu `name` được backfill từ `province`.
 - Khách sạn, xe, bữa ăn, vé và bảo hiểm là dữ liệu embedded trong package, không phải inventory độc lập.
 
 ### API
 
 | Method | Path | Quyền | Ý nghĩa |
 |---|---|---|---|
-| `GET` | `/v1/tours` | Public | Tìm Tour; hỗ trợ `q`, `destination`, `minPrice`, `maxPrice`, `fromDate`, `toDate`, `tourType`, vị trí, sort và paging |
+| `GET` | `/v1/tours` | Public | Tìm Tour; `destination` khớp tên điểm đến hoặc tỉnh/thành; hỗ trợ `q`, giá, ngày, `tourType`, vị trí, sort và paging. Item trả thêm `destinationName` |
 | `GET` | `/v1/tours/{tourId}` | Public | Chi tiết Tour đang hoạt động |
 | `POST` | `/v1/admin/tours` | Admin | Tạo Tour package |
 | `PUT` | `/v1/admin/tours/{tourId}` | Admin | Cập nhật Tour package |
@@ -43,18 +44,19 @@ Payload Tour đại diện:
 
 ```json
 {
-  "name": "TP.HCM - Huế 3N2Đ",
+  "name": "Huế chậm một nhịp — Di sản cố đô 3N2Đ",
   "description": "Hành trình khám phá di sản Cố đô.",
   "destination": {
-    "province": "Thừa Thiên Huế",
+    "name": "Huế",
+    "province": "Thành phố Huế",
     "geo": { "lat": 16.4637, "lng": 107.5909 }
   },
   "basePrice": 2800000,
   "tourType": "GROUP",
   "priceModel": "PER_PERSON",
-  "departureLocation": "TP.HCM",
-  "meetingPoint": "Nhà Văn hóa Thanh Niên, Quận 1",
-  "meetingTime": "05:30",
+  "departureLocation": "Huế",
+  "meetingPoint": "Ga Huế, 02 Bùi Thị Xuân, phường Thuận Hóa",
+  "meetingTime": "08:00",
   "minGroupSize": 1,
   "maxGroupSize": 30,
   "guideMode": "INCLUDED",
@@ -82,8 +84,8 @@ Payload Tour đại diện:
   "itinerary": [
     {
       "dayNumber": 1,
-      "title": "TP.HCM - Huế",
-      "activities": [{ "time": "05:30", "description": "Tập trung và khởi hành" }]
+      "title": "Chạm Huế qua chợ Đông Ba và nhịp sống sông Hương",
+      "activities": [{ "time": "08:00", "description": "Hướng dẫn viên đón đoàn tại Ga Huế và phổ biến lịch vận hành." }]
     }
   ]
 }

@@ -203,14 +203,17 @@ public class Tour {
 
 
     public static class Destination {
+        private String name;
         private String province;
         private Geo geo;
 
         protected Destination() {}
-        public Destination(String province, Geo geo) {
+        public Destination(String name, String province, Geo geo) {
+            this.name = name;
             this.province = province;
             this.geo = geo;
         }
+        public String getName() { return name == null || name.isBlank() ? province : name; }
         public String getProvince() { return province; }
         public Geo getGeo() { return geo; }
     }
