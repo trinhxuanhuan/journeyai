@@ -1,7 +1,8 @@
 ﻿[CmdletBinding()]
 param(
     [string]$BaseUrl = "http://localhost:8090",
-    [string]$JwtSecret = $env:JWT_SIGNING_SECRET
+    [string]$JwtSecret = $env:JWT_SIGNING_SECRET,
+    [switch]$KeepTestData
 )
 
 $ErrorActionPreference = "Stop"
@@ -186,7 +187,11 @@ $secondCustomerId = [guid]::NewGuid().ToString()
 $adminHeaders = @{ Authorization = "Bearer $(New-SmokeJwt -Subject $adminId -Role ADMIN -Secret $JwtSecret)" }
 $customerHeaders = @{ Authorization = "Bearer $(New-SmokeJwt -Subject $customerId -Role CUSTOMER -Secret $JwtSecret)" }
 $secondCustomerHeaders = @{ Authorization = "Bearer $(New-SmokeJwt -Subject $secondCustomerId -Role CUSTOMER -Secret $JwtSecret)" }
+$createdTourIds = [System.Collections.Generic.List[string]]::new()
+$smokeResult = $null
+$testPassed = $false
 
+try {
 Write-Host "[1/10] Checking gateway and AI health"
 $health = Invoke-MvpApi -Method GET -Path "/v1/ai/ping" -ExpectedStatus 200
 Assert-Equal $health.Body.status "UP" "AI service is not healthy"
@@ -262,6 +267,7 @@ $groupTour = Invoke-MvpApi -Method POST -Path "/v1/admin/tours" -Headers $adminH
     cancellationPolicy     = $cancellationPolicy
     itinerary              = $itinerary
 }
+[void]$createdTourIds.Add($groupTour.Body.id)
 Assert-Equal $groupTour.Body.tourType "GROUP" "GROUP tour type was not persisted"
 Assert-Equal $groupTour.Body.departureLocation "TP.HCM" "Departure location was not persisted"
 
@@ -289,6 +295,7 @@ $privateTour = Invoke-MvpApi -Method POST -Path "/v1/admin/tours" -Headers $admi
     cancellationPolicy     = $cancellationPolicy
     itinerary              = $itinerary
 }
+[void]$createdTourIds.Add($privateTour.Body.id)
 Assert-Equal $privateTour.Body.priceModel "PER_GROUP" "PRIVATE price model was not persisted"
 Assert-Equal $privateTour.Body.guideMode "OPTIONAL" "PRIVATE guide mode was not persisted"
 
@@ -432,9 +439,7 @@ if ([string]::IsNullOrWhiteSpace($groupDetail.Body.commercialSnapshot)) {
 $finalDeparture = Invoke-MvpApi -Method GET -Path "/v1/tours/$($groupTour.Body.id)/departures" -ExpectedStatus 200
 Assert-Equal @($finalDeparture.Body)[0].availableSeats 1 "Departure did not reserve exactly two seats"
 
-Write-Host ""
-Write-Host "BE MVP smoke test passed." -ForegroundColor Green
-[pscustomobject]@{
+$smokeResult = [pscustomobject]@{
     RunId            = $runId
     GroupTourId      = $groupTour.Body.id
     PrivateTourId    = $privateTour.Body.id
@@ -443,4 +448,42 @@ Write-Host "BE MVP smoke test passed." -ForegroundColor Green
     PrivateBookingId = $privateBooking.Body.bookingId
     PaymentId        = $payment.Body.paymentId
     AiItineraryId    = $ai.Body.id
-} | Format-List
+    TestDataRetained = [bool]$KeepTestData
+}
+$testPassed = $true
+}
+finally {
+    if (-not $KeepTestData -and $createdTourIds.Count -gt 0) {
+        $cleanupErrors = [System.Collections.Generic.List[string]]::new()
+        for ($index = $createdTourIds.Count - 1; $index -ge 0; $index--) {
+            $tourId = $createdTourIds[$index]
+            try {
+                Invoke-MvpApi -Method DELETE -Path "/v1/admin/tours/$tourId" -Headers $adminHeaders -ExpectedStatus 204 | Out-Null
+                Write-Host "CLEANED tour $tourId"
+            }
+            catch {
+                [void]$cleanupErrors.Add("tour $tourId`: $($_.Exception.Message)")
+            }
+        }
+
+        try {
+            Invoke-MvpApi -Method POST -Path "/v1/admin/tours/reindex" -Headers $adminHeaders -ExpectedStatus 202 | Out-Null
+            Write-Host "CLEANED Elasticsearch tour projection"
+        }
+        catch {
+            [void]$cleanupErrors.Add("reindex: $($_.Exception.Message)")
+        }
+
+        if ($cleanupErrors.Count -gt 0) {
+            $message = "Smoke cleanup was incomplete: $($cleanupErrors -join '; ')"
+            if ($testPassed) {
+                throw $message
+            }
+            Write-Warning $message
+        }
+    }
+}
+
+Write-Host ""
+Write-Host "BE MVP smoke test passed." -ForegroundColor Green
+$smokeResult | Format-List
