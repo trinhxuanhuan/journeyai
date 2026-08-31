@@ -21,11 +21,24 @@ Giá bán, khách sạn ở cấp tiêu chuẩn, thực đơn, hạn mức bảo
 
 ## Nhập catalog an toàn
 
+Smoke test mặc định tự soft-deactivate các tour nó tạo. Chỉ dùng `-KeepTestData` khi cần điều tra thủ công và phải dọn lại sau đó.
+
+Với database local đã có dữ liệu test từ các lần chạy cũ, luôn xem trước phạm vi:
+
+```powershell
+./scripts/cleanup-tour-test-data.ps1 `
+  -BaseUrl 'http://localhost:8090' `
+  -AdminAccessToken '<admin-token>' `
+  -WhatIf
+```
+
+Chạy lại không có `-WhatIf` để soft-deactivate đúng các tour có tên theo chuẩn `[SMOKE yyyyMMdd-HHmmss]`. Thêm `-IncludeLegacySamples` chỉ khi muốn vô hiệu hóa ba tour mẫu cũ dùng ảnh `example.com`. Script không xóa cứng Tour, Booking, Payment hay dữ liệu khách hàng.
+
 Xem trước thao tác, không ghi dữ liệu:
 
 ```powershell
 ./scripts/import-verified-tour-catalog.ps1 `
-  -BaseUrl 'http://localhost:8080' `
+  -BaseUrl 'http://localhost:8090' `
   -AdminAccessToken '<admin-token>' `
   -WhatIf
 ```
@@ -34,7 +47,7 @@ Tạo hoặc cập nhật tour theo tên chính xác và yêu cầu reindex:
 
 ```powershell
 ./scripts/import-verified-tour-catalog.ps1 `
-  -BaseUrl 'http://localhost:8080' `
+  -BaseUrl 'http://localhost:8090' `
   -AdminAccessToken '<admin-token>'
 ```
 
@@ -51,7 +64,7 @@ Sau đó chạy:
 
 ```powershell
 ./scripts/import-verified-tour-catalog.ps1 `
-  -BaseUrl 'http://localhost:8080' `
+  -BaseUrl 'http://localhost:8090' `
   -AdminAccessToken '<admin-token>' `
   -PublishDepartures `
   -GuideMapPath './guide-map.local.json'
