@@ -124,7 +124,10 @@ public class TourSearchDocument {
     }
 
     public static class DepartureAvailability {
+        @Field(type = FieldType.Keyword)
         private String departureId;
+
+        @Field(type = FieldType.Date)
         private Instant startDate;
 
         protected DepartureAvailability() {}
