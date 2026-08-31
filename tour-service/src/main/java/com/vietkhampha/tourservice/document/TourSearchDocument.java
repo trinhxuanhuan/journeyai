@@ -127,17 +127,19 @@ public class TourSearchDocument {
         @Field(type = FieldType.Keyword)
         private String departureId;
 
-        @Field(type = FieldType.Date)
-        private Instant startDate;
+        @Field(type = FieldType.Long)
+        private Long startDate;
 
         protected DepartureAvailability() {}
 
         public DepartureAvailability(String departureId, Instant startDate) {
             this.departureId = departureId;
-            this.startDate = startDate;
+            this.startDate = startDate == null ? null : startDate.toEpochMilli();
         }
 
         public String getDepartureId() { return departureId; }
-        public Instant getStartDate() { return startDate; }
+        public Instant getStartDate() {
+            return startDate == null ? null : Instant.ofEpochMilli(startDate);
+        }
     }
 }

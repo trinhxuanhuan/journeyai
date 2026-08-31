@@ -45,5 +45,14 @@ class TourSearchDocumentMappingTest {
                             .isEqualTo("11111111-1111-4111-8111-111111111111");
                     assertThat(departure.getStartDate()).isEqualTo(startDate);
                 });
+
+        Document target = Document.create();
+        converter.write(document, target);
+
+        assertThat(target.get("availableDepartures"))
+                .asInstanceOf(org.assertj.core.api.InstanceOfAssertFactories.LIST)
+                .singleElement()
+                .asInstanceOf(org.assertj.core.api.InstanceOfAssertFactories.MAP)
+                .containsEntry("startDate", startDate.toEpochMilli());
     }
 }
