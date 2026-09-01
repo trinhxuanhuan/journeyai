@@ -5,7 +5,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
-import org.springframework.web.HttpMediaTypeNotSupportedException;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 
 import java.util.LinkedHashMap;
@@ -38,7 +37,7 @@ public class GlobalExceptionHandler {
     public ResponseEntity<Map<String, String>> handleMessageNotReadable(HttpMessageNotReadableException ex) {
         return ResponseEntity
                 .status(HttpStatus.BAD_REQUEST)
-                .body(Map.of("error", "MALFORMED_REQUEST_BODY", "message", "Request body bi thieu hoac khong dung dinh dang JSON"));
+                .body(Map.of("error", "MALFORMED_REQUEST_BODY", "message", "Nội dung yêu cầu bị thiếu hoặc không đúng định dạng JSON"));
     }
 
 }

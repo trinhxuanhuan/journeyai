@@ -10,6 +10,55 @@ Tài liệu này mô tả contract đang được FE sử dụng sau khi hoàn t
 - Tiền tệ của MVP là VND. BE tự tính giá và lưu commercial snapshot; không nhận tổng tiền do FE tính.
 - `tourType`, `priceModel`, loại Booking và việc giữ chỗ được quyết định từ Tour/Departure trên BE.
 
+## Tài khoản và hồ sơ khách hàng
+
+Danh tính đăng nhập do Auth Service sở hữu; thông tin mở rộng và sở thích do User Service sở hữu.
+FE ghép hai response trong Account Center, không lấy email/họ tên từ JWT và không tự gửi `X-User-Id`.
+
+| Method | Path | Quyền | Ý nghĩa |
+|---|---|---|---|
+| `GET` | `/v1/auth/me` | Customer/Admin | Danh tính hiện tại: email, họ tên, role, status và ngày tạo |
+| `PATCH` | `/v1/auth/me` | Customer/Admin | Đổi họ tên; email là định danh đăng nhập chỉ đọc trong MVP |
+| `GET` | `/v1/users/me` | Customer/Admin | Hồ sơ mở rộng: điện thoại, avatar và sở thích |
+| `PATCH` | `/v1/users/me` | Customer/Admin | Cập nhật từng phần hồ sơ theo ngữ nghĩa PATCH |
+
+Response danh tính:
+
+```json
+{
+  "userId": "uuid",
+  "email": "khach@example.com",
+  "fullName": "Nguyễn Minh An",
+  "role": "CUSTOMER",
+  "status": "ACTIVE",
+  "createdAt": "2026-09-01T08:00:00Z",
+  "updatedAt": "2026-09-01T08:00:00Z"
+}
+```
+
+Cập nhật danh tính:
+
+```json
+{ "fullName": "Nguyễn Minh An" }
+```
+
+Cập nhật hồ sơ mở rộng:
+
+```json
+{
+  "phone": "0912345678",
+  "avatarUrl": "https://cdn.example.com/avatar.jpg",
+  "preferenceTags": [
+    { "tagCode": "CULTURE", "weight": 1.0 },
+    { "tagCode": "FOOD", "weight": 0.8 }
+  ]
+}
+```
+
+`phone` và `avatarUrl` bằng chuỗi rỗng nghĩa là xóa giá trị. Avatar MVP chỉ nhận URL HTTPS,
+không nhận file upload. Tối đa 12 sở thích; `tagCode` được chuẩn hóa chữ hoa, không trùng trong
+một hồ sơ và `weight` nằm trong khoảng `0.0..1.0`.
+
 ## Tour package
 
 ### Enum

@@ -1,10 +1,12 @@
 package com.vietkhampha.authservice.controller;
 
 import com.vietkhampha.authservice.dto.AuthTokenResponse;
+import com.vietkhampha.authservice.dto.CurrentUserResponse;
 import com.vietkhampha.authservice.dto.LoginRequest;
 import com.vietkhampha.authservice.dto.RefreshTokenRequest;
 import com.vietkhampha.authservice.dto.RegisterRequest;
 import com.vietkhampha.authservice.dto.RegisterResponse;
+import com.vietkhampha.authservice.dto.UpdateCurrentUserRequest;
 import com.vietkhampha.authservice.dto.VerifyOtpRequest;
 import com.vietkhampha.authservice.exception.BusinessException;
 import com.vietkhampha.authservice.exception.ErrorCode;
@@ -65,6 +67,21 @@ public class AuthController {
         UUID userId = UUID.fromString(jwtService.parseClaims(accessToken).getSubject());
         authService.logoutAll(userId);
         return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/me")
+    public ResponseEntity<CurrentUserResponse> getCurrentUser(
+            @RequestHeader("X-User-Id") String userIdHeader
+    ) {
+        return ResponseEntity.ok(authService.getCurrentUser(UUID.fromString(userIdHeader)));
+    }
+
+    @PatchMapping("/me")
+    public ResponseEntity<CurrentUserResponse> updateCurrentUser(
+            @RequestHeader("X-User-Id") String userIdHeader,
+            @Valid @RequestBody UpdateCurrentUserRequest request
+    ) {
+        return ResponseEntity.ok(authService.updateCurrentUser(UUID.fromString(userIdHeader), request));
     }
 
     // Dùng chung cho logout/logout-all — tránh lặp logic tách "Bearer " ở 2 nơi.

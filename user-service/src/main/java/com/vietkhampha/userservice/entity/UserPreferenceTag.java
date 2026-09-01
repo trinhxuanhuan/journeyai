@@ -6,7 +6,13 @@ import java.time.Instant;
 import java.util.UUID;
 
 @Entity
-@Table(name = "user_preference_tags")
+@Table(
+        name = "user_preference_tags",
+        uniqueConstraints = @UniqueConstraint(
+                name = "uk_user_preference_tags_profile_code",
+                columnNames = {"user_profile_id", "tag_code"}
+        )
+)
 public class UserPreferenceTag {
 
     @Id
@@ -16,10 +22,10 @@ public class UserPreferenceTag {
     @ManyToOne
     @JoinColumn(name = "user_profile_id", nullable = false)
     private UserProfile userProfile;
-    @Column(name = "tag_code", nullable = false)
+    @Column(name = "tag_code", nullable = false, length = 50)
     private String tagCode;
 
-    @Column(nullable = false)
+    @Column(nullable = false, precision = 4, scale = 3)
     private BigDecimal weight = BigDecimal.ONE;
 
     @Column(name = "updated_at", nullable = false)

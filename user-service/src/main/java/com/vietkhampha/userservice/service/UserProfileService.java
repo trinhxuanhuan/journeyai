@@ -12,9 +12,11 @@ import com.vietkhampha.userservice.repository.UserProfileRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
-import java.util.NoSuchElementException;
+import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -45,12 +47,16 @@ public class UserProfileService {
         // null nghĩa là "không đổi phần tag", tránh xóa nhầm tag cũ khi
         // client chỉ muốn cập nhật avatar/SĐT (đúng ngữ nghĩa PATCH).
         if (request.getPreferenceTags() != null) {
-            List<UserPreferenceTag> newTags = request.getPreferenceTags().stream()
+            Set<String> uniqueTagCodes = new HashSet<>();
+            List<PreferenceTagDto> normalizedTags = request.getPreferenceTags().stream()
+                    .map(dto -> normalizePreference(dto, uniqueTagCodes))
+                    .toList();
+            List<UserPreferenceTag> newTags = normalizedTags.stream()
                     .map(dto -> new UserPreferenceTag(dto.getTagCode(), dto.getWeight()))
                     .collect(Collectors.toList());
             profile.replacePreferenceTags(newTags);
 
-            List<Map<String, Object>> eventPayloadTags = request.getPreferenceTags().stream()
+            List<Map<String, Object>> eventPayloadTags = normalizedTags.stream()
                     .map(dto -> Map.<String, Object>of("tagCode", dto.getTagCode(), "weight", dto.getWeight()))
                     .collect(Collectors.toList());
             userEventPublisher.publishPreferencesUpdated(authUserId, eventPayloadTags);
@@ -60,6 +66,18 @@ public class UserProfileService {
         return toResponse(profile);
     }
 
+    private PreferenceTagDto normalizePreference(PreferenceTagDto source, Set<String> uniqueTagCodes) {
+        String normalizedCode = source.getTagCode().trim().toUpperCase(Locale.ROOT);
+        if (!uniqueTagCodes.add(normalizedCode)) {
+            throw new BusinessException(ErrorCode.DUPLICATE_PREFERENCE);
+        }
+
+        PreferenceTagDto normalized = new PreferenceTagDto();
+        normalized.setTagCode(normalizedCode);
+        normalized.setWeight(source.getWeight());
+        return normalized;
+    }
+
     private UserProfile findProfileOrThrow(UUID authUserId) {
         return userProfileRepository.findByAuthUserId(authUserId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.PROFILE_NOT_FOUND));
@@ -67,6 +85,7 @@ public class UserProfileService {
 
     private ProfileResponse toResponse(UserProfile profile) {
         List<PreferenceTagDto> tags = profile.getPreferenceTags().stream()
+                .sorted(java.util.Comparator.comparing(UserPreferenceTag::getTagCode))
                 .map(tag -> {
                     PreferenceTagDto dto = new PreferenceTagDto();
                     dto.setTagCode(tag.getTagCode());

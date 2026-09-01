@@ -69,6 +69,7 @@ Smoke test tạo dữ liệu có prefix `[SMOKE ...]`, kiểm tra GROUP/PRIVATE,
 - Booking: `V1` baseline, `V2` status, `V3` idempotency, `V4` payment inbox, `V5` Departure, `V6` GROUP/PRIVATE + commercial snapshot.
 - Payment: `V1` baseline, `V2` payment idempotency, `V3` refund inbox/idempotency.
 - Notification: `V1` recipient snapshot, Kafka inbox, read state, email delivery và nhắc khởi hành.
+- User: `V1` baseline hồ sơ, `V2` validation/unique constraint cho điện thoại, avatar và sở thích.
 - Tour: backfill MongoDB additive, idempotent khi startup.
 
 Mọi migration đều giữ dữ liệu cũ và dừng sớm khi precondition không an toàn.

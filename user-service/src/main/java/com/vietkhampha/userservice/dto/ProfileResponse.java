@@ -14,7 +14,7 @@ public class ProfileResponse {
         this.userId = userId;
         this.phone = phone;
         this.avatarUrl = avatarUrl;
-        this.preferenceTags = preferenceTags;
+        this.preferenceTags = List.copyOf(preferenceTags);
     }
 
     public UUID getUserId() { return userId; }
