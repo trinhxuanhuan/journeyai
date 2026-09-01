@@ -46,6 +46,7 @@ class VerifiedTourCatalogContractTest {
 
         Set<String> codes = new HashSet<>();
         Set<String> names = new HashSet<>();
+        Set<String> guideKeys = new HashSet<>();
 
         for (JsonNode item : catalog.path("items")) {
             assertThat(codes.add(item.path("code").asText())).as("catalog code must be unique").isTrue();
@@ -78,6 +79,10 @@ class VerifiedTourCatalogContractTest {
             if (request.getTourType() == Tour.TourType.GROUP) {
                 assertThat(item.path("operations").isObject()).isTrue();
                 assertThat(item.path("operations").path("publicationStatus").asText()).isEqualTo("DRAFT");
+                assertThat(item.path("operations").path("regionKey").asText()).isNotBlank();
+                assertThat(guideKeys.add(item.path("operations").path("guideKey").asText()))
+                        .as("guideKey must be unique for concurrently published catalog schedules")
+                        .isTrue();
                 assertThat(request.getPriceModel()).isEqualTo(Tour.PriceModel.PER_PERSON);
                 assertThat(request.getGuideMode()).isEqualTo(Tour.GuideMode.INCLUDED);
             } else {

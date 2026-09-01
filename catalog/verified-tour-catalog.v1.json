@@ -116,6 +116,7 @@
       "operations": {
         "publicationStatus": "DRAFT",
         "regionKey": "CENTRAL",
+        "guideKey": "HUE",
         "firstDepartureOnOrAfter": "2026-09-12",
         "dayOfWeek": "SATURDAY",
         "occurrences": 8,
@@ -248,6 +249,7 @@
       "operations": {
         "publicationStatus": "DRAFT",
         "regionKey": "NORTH",
+        "guideKey": "HA_GIANG",
         "firstDepartureOnOrAfter": "2026-09-12",
         "dayOfWeek": "SATURDAY",
         "occurrences": 8,
@@ -372,6 +374,7 @@
       "operations": {
         "publicationStatus": "DRAFT",
         "regionKey": "CENTRAL",
+        "guideKey": "HOI_AN",
         "firstDepartureOnOrAfter": "2026-09-12",
         "dayOfWeek": "SATURDAY",
         "occurrences": 8,

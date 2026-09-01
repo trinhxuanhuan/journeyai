@@ -44,15 +44,14 @@ public class TourSearchService {
         }
 
         if (destination != null && !destination.isBlank()) {
-            boolQuery.filter(f -> f.bool(destinationQuery -> destinationQuery
-                    .should(s -> s.term(t -> t.field("destinationName").value(destination)))
-                    .should(s -> s.term(t -> t.field("province").value(destination)))
-                    .minimumShouldMatch("1")
-            ));
+            boolQuery.filter(buildDestinationQuery(destination.trim()));
         }
 
         if (tourType != null && !tourType.isBlank()) {
-            boolQuery.filter(f -> f.term(t -> t.field("tourType").value(tourType.toUpperCase())));
+            boolQuery.filter(f -> f.match(m -> m
+                    .field("tourType")
+                    .query(tourType.trim().toUpperCase())
+            ));
         }
 
         if (fromDate != null || toDate != null) {
@@ -121,6 +120,22 @@ public class TourSearchService {
                 .collect(Collectors.toList());
 
         return new TourSearchResponse(items, hits.getTotalHits(), page);
+    }
+
+    static Query buildDestinationQuery(String destination) {
+        return new Query.Builder()
+                .bool(destinationQuery -> destinationQuery
+                        .should(s -> s.matchPhrase(match -> match
+                                .field("destinationName")
+                                .query(destination)
+                        ))
+                        .should(s -> s.matchPhrase(match -> match
+                                .field("province")
+                                .query(destination)
+                        ))
+                        .minimumShouldMatch("1")
+                )
+                .build();
     }
 
     private Sort resolveSort(String sortBy) {
