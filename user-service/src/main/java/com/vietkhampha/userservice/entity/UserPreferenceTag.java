@@ -44,4 +44,9 @@ public class UserPreferenceTag {
     public void setUserProfile(UserProfile userProfile) { this.userProfile = userProfile; }
     public String getTagCode() { return tagCode; }
     public BigDecimal getWeight() { return weight; }
+
+    public void updateWeight(BigDecimal weight) {
+        this.weight = weight;
+        this.updatedAt = Instant.now();
+    }
 }
