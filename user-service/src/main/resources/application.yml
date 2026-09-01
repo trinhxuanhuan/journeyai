@@ -6,9 +6,15 @@ spring:
     username: ${SPRING_DATASOURCE_USERNAME:journeyai}
     password: ${SPRING_DATASOURCE_PASSWORD:journeyai_dev_password}
   jpa:
+    open-in-view: false
     hibernate:
-      ddl-auto: update
+      ddl-auto: validate
     show-sql: false
+  flyway:
+    enabled: true
+    baseline-on-migrate: false
+    validate-on-migrate: true
+    locations: classpath:db/migration
   kafka:
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
     consumer:

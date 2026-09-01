@@ -151,6 +151,26 @@ public class AuthService {
         return issueTokens(user);
     }
 
+    @Transactional(readOnly = true)
+    public CurrentUserResponse getCurrentUser(java.util.UUID userId) {
+        return CurrentUserResponse.from(findUserOrThrow(userId));
+    }
+
+    @Transactional
+    public CurrentUserResponse updateCurrentUser(
+            java.util.UUID userId,
+            UpdateCurrentUserRequest request
+    ) {
+        User user = findUserOrThrow(userId);
+        user.updateFullName(request.getFullName().trim().replaceAll("\\s+", " "));
+        return CurrentUserResponse.from(userRepository.save(user));
+    }
+
+    private User findUserOrThrow(java.util.UUID userId) {
+        return userRepository.findById(userId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+    }
+
     private boolean isAccountLocked(java.util.UUID userId) {
         return redisTemplate.hasKey(loginLockKey(userId));
     }

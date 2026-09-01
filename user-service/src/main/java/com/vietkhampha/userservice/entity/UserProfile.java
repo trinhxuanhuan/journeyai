@@ -16,9 +16,10 @@ public class UserProfile {
     @Column(name = "auth_user_id", nullable = false, unique = true)
     private UUID authUserId;
 
+    @Column(length = 10)
     private String phone;
 
-    @Column(name = "avatar_url")
+    @Column(name = "avatar_url", length = 2048)
     private String avatarUrl;
 
     @OneToMany(mappedBy = "userProfile", cascade = CascadeType.ALL, orphanRemoval = true)
@@ -46,8 +47,8 @@ public class UserProfile {
     public Instant getUpdatedAt() { return updatedAt; }
 
     public void updateProfile(String phone, String avatarUrl) {
-        if (phone != null) this.phone = phone;
-        if (avatarUrl != null) this.avatarUrl = avatarUrl;
+        if (phone != null) this.phone = normalizeNullable(phone);
+        if (avatarUrl != null) this.avatarUrl = normalizeNullable(avatarUrl);
         this.updatedAt = Instant.now();
     }
 
@@ -56,5 +57,10 @@ public class UserProfile {
         newTags.forEach(tag -> tag.setUserProfile(this));
         this.preferenceTags.addAll(newTags);
         this.updatedAt = Instant.now();
+    }
+
+    private String normalizeNullable(String value) {
+        String normalized = value.trim();
+        return normalized.isEmpty() ? null : normalized;
     }
 }

@@ -73,4 +73,9 @@ public class User {
         this.status = status;
         this.updatedAt = Instant.now();
     }
+
+    public void updateFullName(String fullName) {
+        this.fullName = fullName;
+        this.updatedAt = Instant.now();
+    }
 }

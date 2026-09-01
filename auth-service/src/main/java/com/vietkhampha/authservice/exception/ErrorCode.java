@@ -4,6 +4,8 @@ import org.springframework.http.HttpStatus;
 
 public enum ErrorCode {
 
+    USER_NOT_FOUND(HttpStatus.NOT_FOUND, "Không tìm thấy tài khoản"),
+    VALIDATION_FAILED(HttpStatus.BAD_REQUEST, "Dữ liệu không hợp lệ"),
     EMAIL_ALREADY_EXISTS(HttpStatus.CONFLICT, "Email da duoc su dung"),
     OTP_INVALID(HttpStatus.BAD_REQUEST, "Ma OTP khong dung"),
     OTP_EXPIRED(HttpStatus.CONFLICT, "Ma OTP da het han"),
