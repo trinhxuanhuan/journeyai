@@ -3,7 +3,11 @@ package com.vietkhampha.userservice.entity;
 import jakarta.persistence.*;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 @Entity
@@ -53,9 +57,23 @@ public class UserProfile {
     }
 
     public void replacePreferenceTags(List<UserPreferenceTag> newTags) {
-        this.preferenceTags.clear();
-        newTags.forEach(tag -> tag.setUserProfile(this));
-        this.preferenceTags.addAll(newTags);
+        Map<String, UserPreferenceTag> existingByCode = new HashMap<>();
+        preferenceTags.forEach(tag -> existingByCode.put(tag.getTagCode(), tag));
+
+        Set<String> requestedCodes = new HashSet<>();
+        newTags.forEach(tag -> requestedCodes.add(tag.getTagCode()));
+        preferenceTags.removeIf(tag -> !requestedCodes.contains(tag.getTagCode()));
+
+        newTags.forEach(newTag -> {
+            UserPreferenceTag existingTag = existingByCode.get(newTag.getTagCode());
+            if (existingTag != null) {
+                existingTag.updateWeight(newTag.getWeight());
+                return;
+            }
+
+            newTag.setUserProfile(this);
+            preferenceTags.add(newTag);
+        });
         this.updatedAt = Instant.now();
     }
 
