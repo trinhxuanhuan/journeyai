@@ -64,6 +64,28 @@ Smoke test xuyên service sau khi Docker stack đã chạy:
 
 Smoke test tạo dữ liệu có prefix `[SMOKE ...]`, kiểm tra GROUP/PRIVATE, Departure capacity, pricing snapshot, idempotency, Notification qua Kafka, Payment `INITIATED` và AI itinerary sharing. Script không thực hiện giao dịch hoặc refund thật.
 
+## Catalog tour đã kiểm chứng
+
+`catalog/verified-tour-catalog.v1.json` chứa nội dung tour công khai và nguồn đối chiếu địa danh. Import tour và reindex Elasticsearch bằng tài khoản quản trị:
+
+```powershell
+./scripts/import-verified-tour-catalog.ps1 `
+  -BaseUrl http://localhost:8090 `
+  -AdminAccessToken $env:VKP_ADMIN_ACCESS_TOKEN
+```
+
+Tour ghép chỉ nhận booking khi có Departure `OPEN`, còn chỗ và đã được phân công hướng dẫn viên. Việc công bố lịch là thao tác vận hành riêng, yêu cầu `-GuideMap` hoặc tệp JSON `-GuideMapPath` ánh xạ `guideKey` sang `guideId` đang hoạt động. Mỗi lịch đồng thời dùng một `guideKey` riêng để không vô tình phân công một HDV cho hai đoàn:
+
+```powershell
+./scripts/import-verified-tour-catalog.ps1 `
+  -BaseUrl http://localhost:8090 `
+  -AdminAccessToken $env:VKP_ADMIN_ACCESS_TOKEN `
+  -PublishDepartures `
+  -GuideMapPath ./guide-map.local.json
+```
+
+Importer giữ nhịp lịch đã cấu hình, bỏ qua Departure trùng ngày và tự dịch lô lịch mới tới tối thiểu 7 ngày sau thời điểm chạy. Không commit access token hoặc `guide-map.local.json` chứa dữ liệu vận hành.
+
 ## Migration hiện tại
 
 - Booking: `V1` baseline, `V2` status, `V3` idempotency, `V4` payment inbox, `V5` Departure, `V6` GROUP/PRIVATE + commercial snapshot.

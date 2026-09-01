@@ -10,7 +10,12 @@ param(
 
     [switch]$PublishDepartures,
 
-    [string]$GuideMapPath
+    [hashtable]$GuideMap,
+
+    [string]$GuideMapPath,
+
+    [ValidateRange(0, 365)]
+    [int]$MinimumLeadDays = 7
 )
 
 $ErrorActionPreference = 'Stop'
@@ -50,15 +55,20 @@ function Invoke-VkpJson {
     Invoke-RestMethod @request
 }
 
-$guideMap = $null
 if ($PublishDepartures) {
-    if ([string]::IsNullOrWhiteSpace($GuideMapPath)) {
-        throw '-PublishDepartures yêu cầu -GuideMapPath để phân công HDV thật theo regionKey.'
+    if ($null -eq $GuideMap -and [string]::IsNullOrWhiteSpace($GuideMapPath)) {
+        throw '-PublishDepartures yêu cầu -GuideMap hoặc -GuideMapPath để phân công HDV đang hoạt động.'
     }
-    $guideMap = Get-Content -LiteralPath (Resolve-Path -LiteralPath $GuideMapPath).Path -Raw | ConvertFrom-Json -AsHashtable
+    if ($null -eq $GuideMap) {
+        $GuideMap = Get-Content -LiteralPath (Resolve-Path -LiteralPath $GuideMapPath).Path -Raw | ConvertFrom-Json -AsHashtable
+    }
 }
 
-$adminTours = @(Invoke-VkpJson -Method GET -Path '/v1/admin/tours')
+$adminToursResponse = Invoke-VkpJson -Method GET -Path '/v1/admin/tours'
+# PowerShell 7 treats a top-level JSON array returned by Invoke-RestMethod as one
+# pipeline object when the invocation is wrapped directly in @(...). Assigning
+# the response first makes @() enumerate the actual tour items.
+$adminTours = @($adminToursResponse)
 $imported = @()
 
 foreach ($item in $catalog.items) {
@@ -103,15 +113,25 @@ if ($PublishDepartures) {
         if ($operation.publicationStatus -ne 'DRAFT') {
             throw "Trạng thái lịch của $($entry.Code) không hợp lệ: $($operation.publicationStatus)."
         }
-        $guideId = $guideMap[$operation.regionKey]
+        $guideKey = if ([string]::IsNullOrWhiteSpace($operation.guideKey)) {
+            $operation.regionKey
+        } else {
+            $operation.guideKey
+        }
+        $guideId = $GuideMap[$guideKey]
         if ([string]::IsNullOrWhiteSpace($guideId)) {
-            throw "Guide map thiếu HDV thật cho regionKey '$($operation.regionKey)'."
+            throw "Guide map thiếu HDV đang hoạt động cho guideKey '$guideKey'."
         }
 
-        $existing = @(Invoke-VkpJson -Method GET -Path "/v1/admin/tours/$($entry.TourId)/departures")
+        $existingResponse = Invoke-VkpJson -Method GET -Path "/v1/admin/tours/$($entry.TourId)/departures"
+        $existing = @($existingResponse)
         $candidate = [datetime]::ParseExact($operation.firstDepartureOnOrAfter, 'yyyy-MM-dd', $null)
         while ($candidate.DayOfWeek.ToString().ToUpperInvariant() -ne $operation.dayOfWeek) {
             $candidate = $candidate.AddDays(1)
+        }
+        $earliestBookableDate = [datetime]::Today.AddDays($MinimumLeadDays)
+        while ($candidate -lt $earliestBookableDate) {
+            $candidate = $candidate.AddDays(7 * $operation.intervalWeeks)
         }
 
         for ($index = 0; $index -lt $operation.occurrences; $index++) {

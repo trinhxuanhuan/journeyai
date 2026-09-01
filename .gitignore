@@ -1,5 +1,6 @@
 # Secrets
 .env
+guide-map*.local.json
 
 # Java / Maven
 target/
