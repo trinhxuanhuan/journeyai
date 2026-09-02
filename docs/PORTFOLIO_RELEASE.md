@@ -12,7 +12,7 @@
 
 ## Checklist E2E trên staging
 
-Ghi commit SHA, thời gian kiểm định và người kiểm định vào release note. Chỉ gắn tag khi tất cả mục dưới đây đạt.
+Ghi commit SHA, thời gian kiểm định và người kiểm định vào release note. Staging chạy image `sha-<commit>`; chỉ gắn tag SemVer khi tất cả mục dưới đây đạt.
 
 1. Đăng ký bằng email kiểm thử, nhận OTP qua SMTP và đăng nhập.
 2. Cập nhật tên, số điện thoại, avatar URL và sở thích; tải lại trang vẫn giữ dữ liệu.

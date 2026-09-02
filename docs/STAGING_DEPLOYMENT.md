@@ -11,10 +11,19 @@ Frontend và backend vẫn là hai repository độc lập. Với quy mô MVP, b
 
 ## 1. Yêu cầu
 
-- Linux VPS có Docker Engine, Docker Compose v2 và PowerShell 7 (`pwsh`) để chạy các script preflight/import; khuyến nghị tối thiểu 4 vCPU, 8 GB RAM vì Kafka và Elasticsearch cùng chạy.
-- Hai hostname HTTPS, ví dụ `staging.vietkhampha.vn` và `api-staging.vietkhampha.vn`.
+- VPS AMD64 chạy Ubuntu 24.04 hoặc Debian, tối thiểu 4 vCPU và 8 GB RAM; 16 GB ổn định hơn khi Kafka và Elasticsearch cùng chạy.
+- Frontend URL do Vercel cấp và một API hostname HTTPS. Chưa cần mua domain: dùng `api.<IPv4-dùng-dấu-gạch-ngang>.sslip.io`.
 - SMTP test, Gemini API key và tài khoản VNPay sandbox.
-- Reverse proxy có TLS tự động như Caddy hoặc Nginx + Certbot.
+
+Trên VPS mới, clone đúng release commit rồi chạy bootstrap. Script cài Docker Engine, Compose v2, Caddy, PowerShell 7, Git, UFW và chỉ mở SSH/HTTP/HTTPS:
+
+```bash
+apt-get update && apt-get install -y git
+git clone https://github.com/trinhxuanhuan/journeyai.git /opt/viet-kham-pha/app
+cd /opt/viet-kham-pha/app
+git checkout <release-commit-sha>
+bash ./scripts/install-staging-host.sh
+```
 
 ## 2. Secret staging
 
@@ -29,8 +38,8 @@ Thay toàn bộ placeholder. `POSTGRES_PASSWORD` và `MONGO_PASSWORD` chỉ áp 
 
 Kiểm tra file mà không in giá trị secret:
 
-```powershell
-./scripts/validate-staging-env.ps1 -EnvFile /opt/viet-kham-pha/staging.env
+```bash
+pwsh ./scripts/validate-staging-env.ps1 -EnvFile /opt/viet-kham-pha/staging.env
 ```
 
 Preflight bắt buộc Gateway và hạ tầng bind `127.0.0.1`, frontend/CORS dùng cùng HTTPS origin, VNPay callback đúng route và không còn placeholder.
@@ -38,17 +47,25 @@ Preflight bắt buộc Gateway và hạ tầng bind `127.0.0.1`, frontend/CORS d
 ## 3. Dựng backend
 
 ```bash
-git checkout <release-commit-sha>
-docker compose --env-file /opt/viet-kham-pha/staging.env build --pull
-docker compose --env-file /opt/viet-kham-pha/staging.env up -d
-docker compose --env-file /opt/viet-kham-pha/staging.env ps
+docker compose --env-file /opt/viet-kham-pha/staging.env \
+  -f docker-compose.yml -f docker-compose.release.yml pull
+docker compose --env-file /opt/viet-kham-pha/staging.env \
+  -f docker-compose.yml -f docker-compose.release.yml up -d --no-build
+docker compose --env-file /opt/viet-kham-pha/staging.env \
+  -f docker-compose.yml -f docker-compose.release.yml ps
 ```
 
-Reverse proxy `api-staging.vietkhampha.vn` tới `127.0.0.1:8090`. Không proxy trực tiếp bất kỳ application service hoặc cổng hạ tầng nào. Endpoint kiểm tra bên ngoài:
+Cấu hình Caddy sau khi thay IPv4 bằng dạng dấu gạch ngang:
 
 ```bash
-curl --fail --silent https://api-staging.vietkhampha.vn/actuator/health
-curl --fail --silent https://api-staging.vietkhampha.vn/v1/ai/ping
+bash ./scripts/configure-staging-caddy.sh api.203-0-113-10.sslip.io
+```
+
+Caddy tự cấp TLS và chỉ proxy API hostname tới `127.0.0.1:8090`. Không proxy trực tiếp bất kỳ application service hoặc cổng hạ tầng nào. Endpoint kiểm tra bên ngoài:
+
+```bash
+curl --fail --silent https://api.203-0-113-10.sslip.io/actuator/health
+curl --fail --silent https://api.203-0-113-10.sslip.io/v1/ai/ping
 ```
 
 ## 4. Dữ liệu trình diễn
@@ -58,7 +75,7 @@ curl --fail --silent https://api-staging.vietkhampha.vn/v1/ai/ping
 ```powershell
 $env:VKP_ADMIN_ACCESS_TOKEN = "<access-token>"
 ./scripts/import-verified-tour-catalog.ps1 `
-  -BaseUrl https://api-staging.vietkhampha.vn `
+  -BaseUrl https://api.203-0-113-10.sslip.io `
   -AdminAccessToken $env:VKP_ADMIN_ACCESS_TOKEN `
   -PublishDepartures `
   -GuideMapPath /opt/viet-kham-pha/guide-map.staging.json
@@ -75,12 +92,12 @@ NEXT_PUBLIC_API_URL=https://api-staging.vietkhampha.vn
 NEXT_PUBLIC_SITE_URL=https://staging.vietkhampha.vn
 ```
 
-Có thể dùng Vercel hoặc image Docker standalone trong repository frontend. Sau khi frontend lên, chạy checklist E2E trong `docs/PORTFOLIO_RELEASE.md` trên đúng URL staging.
+Dùng Vercel theo hướng dẫn trong `docs/VERCEL_STAGING.md` của repository frontend. Sau khi frontend lên, chạy checklist E2E trong `docs/PORTFOLIO_RELEASE.md` trên đúng URL staging.
 
 ## 6. Rollback và dữ liệu
 
 - Lưu commit SHA và image digest của lần deploy đạt kiểm định.
 - Sao lưu PostgreSQL và MongoDB trước mỗi lần nâng phiên bản có migration.
-- Rollback application bằng cách checkout SHA trước đó và build/up lại; không tự động hạ schema.
+- Rollback application bằng cách đổi `RELEASE_VERSION` về image `sha-...` trước đó rồi `pull` và `up -d --no-build`; không tự động hạ schema.
 - Migration hiện tại additive, nhưng vẫn phải đọc release note trước khi rollback qua nhiều phiên bản.
 - Không xóa volume khi rollback. Lệnh `docker compose down -v` không được dùng trên staging.

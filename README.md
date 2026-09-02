@@ -2,6 +2,8 @@
 
 Backend cho nền tảng đặt Tour Việt Nam và gợi ý hành trình tự túc bằng AI. MVP tập trung vào Tour ghép trọn gói, Tour riêng có giá xác định trước và AI itinerary độc lập; không xây inventory khách sạn, vé máy bay hay vé tham quan kiểu OTA.
 
+[![CI](https://github.com/trinhxuanhuan/journeyai/actions/workflows/ci.yml/badge.svg)](https://github.com/trinhxuanhuan/journeyai/actions/workflows/ci.yml)
+
 ## Miền nghiệp vụ MVP
 
 - Tour ghép: `Tour -> Departure -> Booking -> Participants -> Payment`; capacity và HDV cụ thể thuộc từng Departure.
@@ -72,6 +74,7 @@ Smoke test xuyên service sau khi Docker stack đã chạy:
 Quy trình kiểm định đầy đủ trước khi phát hành: [docs/RELEASE_CANDIDATE_RUNBOOK.md](docs/RELEASE_CANDIDATE_RUNBOOK.md).
 Hướng dẫn dựng môi trường công khai an toàn: [docs/STAGING_DEPLOYMENT.md](docs/STAGING_DEPLOYMENT.md).
 Checklist E2E và nội dung portfolio: [docs/PORTFOLIO_RELEASE.md](docs/PORTFOLIO_RELEASE.md).
+Release image bất biến và ghi chú phát hành: [docs/FINAL_RELEASE.md](docs/FINAL_RELEASE.md).
 
 ## Catalog tour đã kiểm chứng
 

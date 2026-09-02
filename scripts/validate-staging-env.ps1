@@ -37,6 +37,9 @@ $requiredVariables = @(
     "AI_MONGO_URI",
     "INFRA_BIND_HOST",
     "GATEWAY_BIND_HOST",
+    "CONTAINER_REGISTRY",
+    "CONTAINER_IMAGE_OWNER",
+    "RELEASE_VERSION",
     "FRONTEND_BASE_URL",
     "CORS_ALLOWED_ORIGIN",
     "CORS_ALLOWED_ORIGIN_ALT",
@@ -74,6 +77,18 @@ foreach ($name in @("POSTGRES_PASSWORD", "MONGO_PASSWORD", "SMTP_PASSWORD", "VNP
 
 if ($values["EMAIL_ENABLED"] -ne "true") {
     throw "EMAIL_ENABLED phải là true trên staging để người dùng nhận được OTP."
+}
+
+if ($values["CONTAINER_REGISTRY"] -ne "ghcr.io") {
+    throw "CONTAINER_REGISTRY phải là ghcr.io trong release MVP."
+}
+
+if ($values["CONTAINER_IMAGE_OWNER"] -notmatch "^[a-z0-9]+(?:[.-][a-z0-9]+)*$") {
+    throw "CONTAINER_IMAGE_OWNER phải là GitHub owner viết thường hợp lệ."
+}
+
+if ($values["RELEASE_VERSION"] -notmatch "^(?:v[0-9]+\.[0-9]+\.[0-9]+(?:-rc\.[0-9]+)?|sha-[0-9a-f]{12})$") {
+    throw "RELEASE_VERSION phải là SemVer release hoặc sha- kèm 12 ký tự commit."
 }
 
 foreach ($name in @("INFRA_BIND_HOST", "GATEWAY_BIND_HOST")) {
@@ -129,7 +144,13 @@ if ($vnpayReturnUrl.AbsolutePath -ne "/v1/payments/vnpay-return") {
     throw "VNPAY_RETURN_URL phải kết thúc bằng /v1/payments/vnpay-return."
 }
 
-docker compose --env-file $resolvedEnvFile config --quiet
+$repoRoot = Split-Path -Parent $PSScriptRoot
+docker compose `
+    --project-directory $repoRoot `
+    --env-file $resolvedEnvFile `
+    -f (Join-Path $repoRoot "docker-compose.yml") `
+    -f (Join-Path $repoRoot "docker-compose.release.yml") `
+    config --quiet
 if ($LASTEXITCODE -ne 0) {
     throw "Docker Compose không thể render cấu hình staging."
 }
