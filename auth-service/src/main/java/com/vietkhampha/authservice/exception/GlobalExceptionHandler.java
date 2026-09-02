@@ -11,6 +11,20 @@ import java.util.Map;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+    @ExceptionHandler(AccountVerificationRequiredException.class)
+    public ResponseEntity<Map<String, Object>> handleAccountVerificationRequired(
+            AccountVerificationRequiredException ex
+    ) {
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("error", ex.getErrorCode().name());
+        body.put("message", ex.getMessage());
+        body.put("userId", ex.getUserId());
+        body.put("email", ex.getEmail());
+        body.put("otpExpiresAt", ex.getOtpExpiresAt());
+        body.put("otpResendAvailableAt", ex.getOtpResendAvailableAt());
+        return ResponseEntity.status(ex.getErrorCode().getHttpStatus()).body(body);
+    }
+
     @ExceptionHandler(BusinessException.class)
     public ResponseEntity<Map<String, String>> handleBusinessException(BusinessException ex) {
         return ResponseEntity

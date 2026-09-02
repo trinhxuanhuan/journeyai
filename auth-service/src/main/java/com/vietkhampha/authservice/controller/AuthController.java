@@ -6,6 +6,8 @@ import com.vietkhampha.authservice.dto.LoginRequest;
 import com.vietkhampha.authservice.dto.RefreshTokenRequest;
 import com.vietkhampha.authservice.dto.RegisterRequest;
 import com.vietkhampha.authservice.dto.RegisterResponse;
+import com.vietkhampha.authservice.dto.ResendOtpRequest;
+import com.vietkhampha.authservice.dto.ResendOtpResponse;
 import com.vietkhampha.authservice.dto.UpdateCurrentUserRequest;
 import com.vietkhampha.authservice.dto.VerifyOtpRequest;
 import com.vietkhampha.authservice.exception.BusinessException;
@@ -39,6 +41,11 @@ public class AuthController {
     @PostMapping("/verify-otp")
     public ResponseEntity<AuthTokenResponse> verifyOtp(@Valid @RequestBody VerifyOtpRequest request) {
         return ResponseEntity.ok(authService.verifyOtp(request));
+    }
+
+    @PostMapping("/resend-otp")
+    public ResponseEntity<ResendOtpResponse> resendOtp(@Valid @RequestBody ResendOtpRequest request) {
+        return ResponseEntity.ok(authService.resendOtp(request));
     }
 
     @PostMapping("/login")
@@ -87,7 +94,7 @@ public class AuthController {
     // Dùng chung cho logout/logout-all — tránh lặp logic tách "Bearer " ở 2 nơi.
     private String extractBearerToken(String authorizationHeader) {
         if (authorizationHeader == null || !authorizationHeader.startsWith("Bearer ")) {
-            throw new BusinessException(ErrorCode.REFRESH_TOKEN_INVALID, "Thieu hoac sai dinh dang Authorization header");
+            throw new BusinessException(ErrorCode.REFRESH_TOKEN_INVALID, "Thiếu hoặc sai định dạng Authorization header");
         }
         return authorizationHeader.substring(7);
     }
