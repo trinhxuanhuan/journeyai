@@ -2,6 +2,7 @@ package com.vietkhampha.apigateway;
 
 import com.vietkhampha.apigateway.security.JwtAuthenticationFilter;
 import com.vietkhampha.apigateway.security.JwtValidator;
+import com.vietkhampha.apigateway.security.TokenRevocationChecker;
 import io.jsonwebtoken.Claims;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -27,12 +28,14 @@ import static org.mockito.Mockito.when;
 class AdminTourGuideGatewaySecurityTest {
 
     private JwtValidator jwtValidator;
+    private TokenRevocationChecker tokenRevocationChecker;
     private JwtAuthenticationFilter filter;
 
     @BeforeEach
     void setUp() {
         jwtValidator = mock(JwtValidator.class);
-        filter = new JwtAuthenticationFilter(jwtValidator);
+        tokenRevocationChecker = mock(TokenRevocationChecker.class);
+        filter = new JwtAuthenticationFilter(jwtValidator, tokenRevocationChecker);
     }
 
     @Test
@@ -44,13 +47,14 @@ class AdminTourGuideGatewaySecurityTest {
 
         assertEquals(HttpStatus.UNAUTHORIZED, exchange.getResponse().getStatusCode());
         assertFalse(chainCalled.get());
-        verifyNoInteractions(jwtValidator);
+        verifyNoInteractions(jwtValidator, tokenRevocationChecker);
     }
 
     @Test
     void nonAdminJwt_isRejectedWithForbidden() {
         Claims claims = claims("CUSTOMER");
         when(jwtValidator.validateAndParse("customer-token")).thenReturn(claims);
+        when(tokenRevocationChecker.isRevoked("customer-token")).thenReturn(Mono.just(false));
         MockServerWebExchange exchange = exchangeWithToken("customer-token");
         AtomicBoolean chainCalled = new AtomicBoolean(false);
 
@@ -67,6 +71,7 @@ class AdminTourGuideGatewaySecurityTest {
         when(claims.getSubject()).thenReturn(adminId);
         when(claims.get("role", String.class)).thenReturn("ADMIN");
         when(jwtValidator.validateAndParse("admin-token")).thenReturn(claims);
+        when(tokenRevocationChecker.isRevoked("admin-token")).thenReturn(Mono.just(false));
         MockServerWebExchange exchange = exchangeWithToken("admin-token");
         AtomicReference<ServerWebExchange> forwardedExchange = new AtomicReference<>();
         GatewayFilterChain chain = received -> {

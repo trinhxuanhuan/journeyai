@@ -25,6 +25,7 @@ public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
             "/v1/auth/resend-otp",
             "/v1/auth/login",
             "/v1/auth/refresh",
+            "/v1/auth/ping",
             "/v1/auth/google/**",
             "/v1/tours",
             "/v1/tours/**",
@@ -36,9 +37,14 @@ public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
     );
 
     private final JwtValidator jwtValidator;
+    private final TokenRevocationChecker tokenRevocationChecker;
 
-    public JwtAuthenticationFilter(JwtValidator jwtValidator) {
+    public JwtAuthenticationFilter(
+            JwtValidator jwtValidator,
+            TokenRevocationChecker tokenRevocationChecker
+    ) {
         this.jwtValidator = jwtValidator;
+        this.tokenRevocationChecker = tokenRevocationChecker;
     }
 
     @Override
@@ -61,19 +67,25 @@ public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
             return reject(exchange, HttpStatus.UNAUTHORIZED);
         }
 
-        if (path.startsWith("/v1/admin/") && !"ADMIN".equals(claims.get("role", String.class))) {
-            return reject(exchange, HttpStatus.FORBIDDEN);
-        }
+        return tokenRevocationChecker.isRevoked(token).flatMap(revoked -> {
+            if (Boolean.TRUE.equals(revoked)) {
+                return reject(exchange, HttpStatus.UNAUTHORIZED);
+            }
 
-        // Chuyển tiếp thông tin user đã xác thực sang service phía sau qua header —
-        // các service Java (đang permitAll()) có thể đọc header này sau này khi
-        // cần biết "ai đang gọi" mà không phải tự parse JWT lại lần nữa.
-        ServerHttpRequest mutatedRequest = exchange.getRequest().mutate()
-                .header("X-User-Id", claims.getSubject())
-                .header("X-User-Role", claims.get("role", String.class))
-                .build();
+            if (path.startsWith("/v1/admin/") && !"ADMIN".equals(claims.get("role", String.class))) {
+                return reject(exchange, HttpStatus.FORBIDDEN);
+            }
 
-        return chain.filter(exchange.mutate().request(mutatedRequest).build());
+            // Chuyển tiếp thông tin user đã xác thực sang service phía sau qua header —
+            // các service Java (đang permitAll()) có thể đọc header này sau này khi
+            // cần biết "ai đang gọi" mà không phải tự parse JWT lại lần nữa.
+            ServerHttpRequest mutatedRequest = exchange.getRequest().mutate()
+                    .header("X-User-Id", claims.getSubject())
+                    .header("X-User-Role", claims.get("role", String.class))
+                    .build();
+
+            return chain.filter(exchange.mutate().request(mutatedRequest).build());
+        });
     }
 
     private boolean isPublicPath(String path) {

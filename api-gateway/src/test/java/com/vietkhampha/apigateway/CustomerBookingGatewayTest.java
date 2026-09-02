@@ -2,6 +2,7 @@ package com.vietkhampha.apigateway;
 
 import com.vietkhampha.apigateway.security.JwtAuthenticationFilter;
 import com.vietkhampha.apigateway.security.JwtValidator;
+import com.vietkhampha.apigateway.security.TokenRevocationChecker;
 import io.jsonwebtoken.Claims;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.env.YamlPropertySourceLoader;
@@ -50,7 +51,8 @@ class CustomerBookingGatewayTest {
     @Test
     void requestWithoutJwtIsRejectedBeforeRouting() {
         JwtValidator jwtValidator = mock(JwtValidator.class);
-        JwtAuthenticationFilter filter = new JwtAuthenticationFilter(jwtValidator);
+        TokenRevocationChecker tokenRevocationChecker = mock(TokenRevocationChecker.class);
+        JwtAuthenticationFilter filter = new JwtAuthenticationFilter(jwtValidator, tokenRevocationChecker);
         MockServerWebExchange exchange = MockServerWebExchange.from(
                 MockServerHttpRequest.get("/v1/bookings/me").build()
         );
@@ -63,18 +65,20 @@ class CustomerBookingGatewayTest {
 
         assertEquals(HttpStatus.UNAUTHORIZED, exchange.getResponse().getStatusCode());
         assertFalse(chainCalled.get());
-        verifyNoInteractions(jwtValidator);
+        verifyNoInteractions(jwtValidator, tokenRevocationChecker);
     }
 
     @Test
     void authenticatedCustomerIsForwardedWithTrustedIdentityReplacingSpoofedHeaders() {
         String customerId = UUID.randomUUID().toString();
         JwtValidator jwtValidator = mock(JwtValidator.class);
+        TokenRevocationChecker tokenRevocationChecker = mock(TokenRevocationChecker.class);
         Claims claims = mock(Claims.class);
         when(claims.getSubject()).thenReturn(customerId);
         when(claims.get("role", String.class)).thenReturn("CUSTOMER");
         when(jwtValidator.validateAndParse("customer-token")).thenReturn(claims);
-        JwtAuthenticationFilter filter = new JwtAuthenticationFilter(jwtValidator);
+        when(tokenRevocationChecker.isRevoked("customer-token")).thenReturn(Mono.just(false));
+        JwtAuthenticationFilter filter = new JwtAuthenticationFilter(jwtValidator, tokenRevocationChecker);
         MockServerWebExchange exchange = MockServerWebExchange.from(
                 MockServerHttpRequest.get("/v1/bookings/me")
                         .header(HttpHeaders.AUTHORIZATION, "Bearer customer-token")

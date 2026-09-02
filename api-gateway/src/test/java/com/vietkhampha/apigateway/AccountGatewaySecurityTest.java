@@ -2,6 +2,7 @@ package com.vietkhampha.apigateway;
 
 import com.vietkhampha.apigateway.security.JwtAuthenticationFilter;
 import com.vietkhampha.apigateway.security.JwtValidator;
+import com.vietkhampha.apigateway.security.TokenRevocationChecker;
 import io.jsonwebtoken.Claims;
 import org.junit.jupiter.api.Test;
 import org.springframework.cloud.gateway.filter.GatewayFilterChain;
@@ -27,6 +28,26 @@ import static org.mockito.Mockito.when;
 class AccountGatewaySecurityTest {
 
     @Test
+    void authPingIsPublicForReadinessChecks() {
+        JwtValidator jwtValidator = mock(JwtValidator.class);
+        TokenRevocationChecker tokenRevocationChecker = mock(TokenRevocationChecker.class);
+        JwtAuthenticationFilter filter = new JwtAuthenticationFilter(jwtValidator, tokenRevocationChecker);
+        MockServerWebExchange exchange = MockServerWebExchange.from(
+                MockServerHttpRequest.get("/v1/auth/ping").build()
+        );
+        AtomicBoolean chainCalled = new AtomicBoolean(false);
+
+        filter.filter(exchange, received -> {
+            chainCalled.set(true);
+            return Mono.empty();
+        }).block(Duration.ofSeconds(1));
+
+        assertEquals(null, exchange.getResponse().getStatusCode());
+        assertEquals(true, chainCalled.get());
+        verifyNoInteractions(jwtValidator, tokenRevocationChecker);
+    }
+
+    @Test
     void authAndProfileMeEndpointsRequireJwt() {
         assertRequiresJwt("/v1/auth/me");
         assertRequiresJwt("/v1/users/me");
@@ -36,11 +57,13 @@ class AccountGatewaySecurityTest {
     void authenticatedAccountRequestReceivesTrustedIdentityInsteadOfSpoofedHeaders() {
         String customerId = UUID.randomUUID().toString();
         JwtValidator jwtValidator = mock(JwtValidator.class);
+        TokenRevocationChecker tokenRevocationChecker = mock(TokenRevocationChecker.class);
         Claims claims = mock(Claims.class);
         when(claims.getSubject()).thenReturn(customerId);
         when(claims.get("role", String.class)).thenReturn("CUSTOMER");
         when(jwtValidator.validateAndParse("customer-token")).thenReturn(claims);
-        JwtAuthenticationFilter filter = new JwtAuthenticationFilter(jwtValidator);
+        when(tokenRevocationChecker.isRevoked("customer-token")).thenReturn(Mono.just(false));
+        JwtAuthenticationFilter filter = new JwtAuthenticationFilter(jwtValidator, tokenRevocationChecker);
         MockServerWebExchange exchange = MockServerWebExchange.from(
                 MockServerHttpRequest.get("/v1/auth/me")
                         .header(HttpHeaders.AUTHORIZATION, "Bearer customer-token")
@@ -60,9 +83,34 @@ class AccountGatewaySecurityTest {
         assertEquals(List.of("CUSTOMER"), forwarded.get().getRequest().getHeaders().get("X-User-Role"));
     }
 
+    @Test
+    void revokedAccessTokenIsRejectedBeforeRouting() {
+        JwtValidator jwtValidator = mock(JwtValidator.class);
+        TokenRevocationChecker tokenRevocationChecker = mock(TokenRevocationChecker.class);
+        Claims claims = mock(Claims.class);
+        when(jwtValidator.validateAndParse("revoked-token")).thenReturn(claims);
+        when(tokenRevocationChecker.isRevoked("revoked-token")).thenReturn(Mono.just(true));
+        JwtAuthenticationFilter filter = new JwtAuthenticationFilter(jwtValidator, tokenRevocationChecker);
+        MockServerWebExchange exchange = MockServerWebExchange.from(
+                MockServerHttpRequest.get("/v1/auth/me")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer revoked-token")
+                        .build()
+        );
+        AtomicBoolean chainCalled = new AtomicBoolean(false);
+
+        filter.filter(exchange, received -> {
+            chainCalled.set(true);
+            return Mono.empty();
+        }).block(Duration.ofSeconds(1));
+
+        assertEquals(HttpStatus.UNAUTHORIZED, exchange.getResponse().getStatusCode());
+        assertFalse(chainCalled.get());
+    }
+
     private void assertRequiresJwt(String path) {
         JwtValidator jwtValidator = mock(JwtValidator.class);
-        JwtAuthenticationFilter filter = new JwtAuthenticationFilter(jwtValidator);
+        TokenRevocationChecker tokenRevocationChecker = mock(TokenRevocationChecker.class);
+        JwtAuthenticationFilter filter = new JwtAuthenticationFilter(jwtValidator, tokenRevocationChecker);
         MockServerWebExchange exchange = MockServerWebExchange.from(MockServerHttpRequest.get(path).build());
         AtomicBoolean chainCalled = new AtomicBoolean(false);
 
@@ -73,6 +121,6 @@ class AccountGatewaySecurityTest {
 
         assertEquals(HttpStatus.UNAUTHORIZED, exchange.getResponse().getStatusCode());
         assertFalse(chainCalled.get());
-        verifyNoInteractions(jwtValidator);
+        verifyNoInteractions(jwtValidator, tokenRevocationChecker);
     }
 }

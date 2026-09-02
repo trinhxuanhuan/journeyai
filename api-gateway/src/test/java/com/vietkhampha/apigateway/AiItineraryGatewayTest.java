@@ -2,6 +2,7 @@ package com.vietkhampha.apigateway;
 
 import com.vietkhampha.apigateway.security.JwtAuthenticationFilter;
 import com.vietkhampha.apigateway.security.JwtValidator;
+import com.vietkhampha.apigateway.security.TokenRevocationChecker;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.env.YamlPropertySourceLoader;
 import org.springframework.core.env.PropertySource;
@@ -44,17 +45,19 @@ class AiItineraryGatewayTest {
     @Test
     void pingAndSharedItineraryArePublic() {
         JwtValidator jwtValidator = mock(JwtValidator.class);
-        JwtAuthenticationFilter filter = new JwtAuthenticationFilter(jwtValidator);
+        TokenRevocationChecker tokenRevocationChecker = mock(TokenRevocationChecker.class);
+        JwtAuthenticationFilter filter = new JwtAuthenticationFilter(jwtValidator, tokenRevocationChecker);
 
         assertPublic(filter, "/v1/ai/ping");
         assertPublic(filter, "/v1/ai/shared/share-token");
-        verifyNoInteractions(jwtValidator);
+        verifyNoInteractions(jwtValidator, tokenRevocationChecker);
     }
 
     @Test
     void personalItineraryEndpointsRequireAuthentication() {
         JwtValidator jwtValidator = mock(JwtValidator.class);
-        JwtAuthenticationFilter filter = new JwtAuthenticationFilter(jwtValidator);
+        TokenRevocationChecker tokenRevocationChecker = mock(TokenRevocationChecker.class);
+        JwtAuthenticationFilter filter = new JwtAuthenticationFilter(jwtValidator, tokenRevocationChecker);
         MockServerWebExchange exchange = MockServerWebExchange.from(
                 MockServerHttpRequest.get("/v1/ai/itineraries").build()
         );
@@ -67,7 +70,7 @@ class AiItineraryGatewayTest {
 
         assertEquals(HttpStatus.UNAUTHORIZED, exchange.getResponse().getStatusCode());
         assertFalse(chainCalled.get());
-        verifyNoInteractions(jwtValidator);
+        verifyNoInteractions(jwtValidator, tokenRevocationChecker);
     }
 
     private void assertPublic(JwtAuthenticationFilter filter, String path) {
