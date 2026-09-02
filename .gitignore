@@ -1,5 +1,7 @@
 # Secrets
-.env
+.env*
+!.env.example
+!.env.staging.example
 guide-map*.local.json
 
 # Java / Maven

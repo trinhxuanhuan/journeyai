@@ -4,11 +4,11 @@ services:
     container_name: jai-postgres
     restart: unless-stopped
     environment:
-      POSTGRES_USER: journeyai
-      POSTGRES_PASSWORD: journeyai_dev_password
+      POSTGRES_USER: ${POSTGRES_USER:-journeyai}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-journeyai_dev_password}
       POSTGRES_DB: postgres
     ports:
-      - "5432:5432"
+      - "${INFRA_BIND_HOST:-127.0.0.1}:5432:5432"
     volumes:
       - pg_data:/var/lib/postgresql/data
       - ./infra/postgres-init:/docker-entrypoint-initdb.d
@@ -23,10 +23,10 @@ services:
     container_name: jai-mongodb
     restart: unless-stopped
     environment:
-      MONGO_INITDB_ROOT_USERNAME: journeyai
-      MONGO_INITDB_ROOT_PASSWORD: journeyai_dev_password
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_USERNAME:-journeyai}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASSWORD:-journeyai_dev_password}
     ports:
-      - "27017:27017"
+      - "${INFRA_BIND_HOST:-127.0.0.1}:27017:27017"
     volumes:
       - mongo_data:/data/db
     healthcheck:
@@ -40,7 +40,7 @@ services:
     container_name: jai-redis
     restart: unless-stopped
     ports:
-      - "6379:6379"
+      - "${INFRA_BIND_HOST:-127.0.0.1}:6379:6379"
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
@@ -56,7 +56,7 @@ services:
       - xpack.security.enabled=false
       - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
     ports:
-      - "9200:9200"
+      - "${INFRA_BIND_HOST:-127.0.0.1}:9200:9200"
     volumes:
       - es_data:/usr/share/elasticsearch/data
     healthcheck:
@@ -80,7 +80,7 @@ services:
       KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
     ports:
-      - "9092:9092"
+      - "${INFRA_BIND_HOST:-127.0.0.1}:9092:9092"
     volumes:
       - kafka_data:/var/lib/kafka/data
     healthcheck:
@@ -94,7 +94,7 @@ services:
     container_name: jai-zipkin
     restart: unless-stopped
     ports:
-      - "9411:9411"
+      - "${INFRA_BIND_HOST:-127.0.0.1}:9411:9411"
 
   # ---------- Application services ----------
   # Chỉ api-gateway được publish ra host (ports). Các service còn lại dùng
@@ -118,8 +118,8 @@ services:
         condition: service_healthy
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/auth_service_db
-      SPRING_DATASOURCE_USERNAME: journeyai
-      SPRING_DATASOURCE_PASSWORD: journeyai_dev_password
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-journeyai}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-journeyai_dev_password}
       JWT_SIGNING_SECRET: ${JWT_SIGNING_SECRET:-dev_only_change_me}
       REDIS_HOST: redis
       REDIS_PORT: 6379
@@ -152,8 +152,8 @@ services:
         condition: service_healthy
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/user_service_db
-      SPRING_DATASOURCE_USERNAME: journeyai
-      SPRING_DATASOURCE_PASSWORD: journeyai_dev_password
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-journeyai}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-journeyai_dev_password}
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
     expose:
       - "8080"
@@ -177,8 +177,8 @@ services:
         condition: service_healthy
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/notification_service_db
-      SPRING_DATASOURCE_USERNAME: journeyai
-      SPRING_DATASOURCE_PASSWORD: journeyai_dev_password
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-journeyai}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-journeyai_dev_password}
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       EMAIL_ENABLED: ${EMAIL_ENABLED:-false}
       SMTP_HOST: ${SMTP_HOST:-smtp.gmail.com}
@@ -217,7 +217,7 @@ services:
       elasticsearch:
         condition: service_healthy
     environment:
-      MONGO_URI: mongodb://journeyai:journeyai_dev_password@mongodb:27017/tour_service_db?authSource=admin
+      MONGO_URI: ${TOUR_MONGO_URI:-mongodb://journeyai:journeyai_dev_password@mongodb:27017/tour_service_db?authSource=admin}
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       ELASTICSEARCH_URI: http://elasticsearch:9200
     expose:
@@ -242,8 +242,8 @@ services:
         condition: service_healthy
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/booking_service_db
-      SPRING_DATASOURCE_USERNAME: journeyai
-      SPRING_DATASOURCE_PASSWORD: journeyai_dev_password
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-journeyai}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-journeyai_dev_password}
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       TOUR_SERVICE_BASE_URL: http://tour-service:8080
     expose:
@@ -268,11 +268,12 @@ services:
         condition: service_healthy
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/payment_service_db
-      SPRING_DATASOURCE_USERNAME: journeyai
-      SPRING_DATASOURCE_PASSWORD: journeyai_dev_password
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-journeyai}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-journeyai_dev_password}
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       VNPAY_TMN_CODE: ${VNPAY_TMN_CODE}
       VNPAY_HASH_SECRET: ${VNPAY_HASH_SECRET}
+      VNPAY_RETURN_URL: ${VNPAY_RETURN_URL:-http://localhost:8090/v1/payments/vnpay-return}
       FRONTEND_BASE_URL: ${FRONTEND_BASE_URL:-http://localhost:3000}
       BOOKING_SERVICE_BASE_URL: http://booking-service:8080
     expose:
@@ -311,8 +312,10 @@ services:
       JWT_SIGNING_SECRET: ${JWT_SIGNING_SECRET:-dev_only_change_me}
       REDIS_HOST: redis
       REDIS_PORT: 6379
+      CORS_ALLOWED_ORIGIN: ${CORS_ALLOWED_ORIGIN:-http://localhost:3000}
+      CORS_ALLOWED_ORIGIN_ALT: ${CORS_ALLOWED_ORIGIN_ALT:-http://127.0.0.1:3000}
     ports:
-      - "8090:8080"
+      - "${GATEWAY_BIND_HOST:-0.0.0.0}:${GATEWAY_PORT:-8090}:8080"
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:8080/actuator/health | grep -q '\"status\":\"UP\"'"]
       interval: 5s
@@ -332,7 +335,7 @@ services:
       redis:
         condition: service_healthy
     environment:
-      MONGO_URI: mongodb://journeyai:journeyai_dev_password@mongodb:27017
+      MONGO_URI: ${AI_MONGO_URI:-mongodb://journeyai:journeyai_dev_password@mongodb:27017}
       MONGO_DATABASE: ai_service_db
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
       GEMINI_MODEL: ${GEMINI_MODEL:-gemini-2.5-flash}

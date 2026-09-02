@@ -9,7 +9,8 @@ Thứ tự ưu tiên hiện tại nhằm giữ tiến độ xin intern nhưng kh
    AI Planner timeline và trang chia sẻ.
 4. **Đã hoàn thành — Account Center**: API danh tính/hồ sơ, menu tài khoản, chỉnh sửa hồ sơ và sở thích.
 5. **Đang thực hiện — Release candidate**: đã có clean startup healthcheck, Auth/OTP/Account smoke bằng token thật,
-   smoke xuyên service cho nghiệp vụ cốt lõi và catalog kiểm chứng; tiếp theo là deploy staging, observability và video demo.
+   smoke xuyên service, catalog kiểm chứng, cấu hình staging an toàn và image FE standalone; còn deploy URL công khai,
+   chạy checklist E2E có SMTP/VNPay sandbox, ghi release note và quay video demo.
 
 Ngoài phạm vi trước khi hoàn thành năm mục trên: booking khách sạn/vé tự túc, realtime pricing,
 catalog toàn quốc, vector database lớn, multi-agent và huấn luyện mô hình riêng.

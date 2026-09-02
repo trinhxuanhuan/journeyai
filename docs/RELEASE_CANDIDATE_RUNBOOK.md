@@ -44,8 +44,12 @@ Hai script tạo dữ liệu tổng hợp, không gọi thanh toán hay refund t
 
 - Secret JWT, SMTP, Gemini và VNPay sandbox được cấp qua secret manager; không commit `.env`.
 - CORS và `FRONTEND_BASE_URL` trỏ đúng domain staging.
+- Chạy `./scripts/validate-staging-env.ps1 -EnvFile <đường-dẫn-env>` trước khi dựng stack.
+- Database, Redis, Kafka, Elasticsearch, Zipkin và Gateway chỉ bind loopback; HTTPS reverse proxy là điểm vào public duy nhất.
 - Chạy lại quality gates và critical smoke trên artifact/commit sẽ deploy.
 - Kiểm tra log không lộ token, mật khẩu, OTP hoặc dữ liệu khách thật.
 - Lưu commit SHA, kết quả CI, thời điểm kiểm định và người phê duyệt trong release note.
+
+Runbook triển khai cụ thể: [STAGING_DEPLOYMENT.md](STAGING_DEPLOYMENT.md). Checklist trình duyệt và bằng chứng CV: [PORTFOLIO_RELEASE.md](PORTFOLIO_RELEASE.md).
 
 Ngoài gate hiện tại: giao dịch VNPay thật, email SMTP thật, tải hiệu năng, backup/restore và diễn tập rollback phải được kiểm tra riêng trước production.
