@@ -1,0 +1,24 @@
+services:
+  auth-service:
+    image: ${CONTAINER_REGISTRY:-ghcr.io}/${CONTAINER_IMAGE_OWNER:-trinhxuanhuan}/journeyai-auth-service:${RELEASE_VERSION:?RELEASE_VERSION is required}
+
+  user-service:
+    image: ${CONTAINER_REGISTRY:-ghcr.io}/${CONTAINER_IMAGE_OWNER:-trinhxuanhuan}/journeyai-user-service:${RELEASE_VERSION:?RELEASE_VERSION is required}
+
+  notification-service:
+    image: ${CONTAINER_REGISTRY:-ghcr.io}/${CONTAINER_IMAGE_OWNER:-trinhxuanhuan}/journeyai-notification-service:${RELEASE_VERSION:?RELEASE_VERSION is required}
+
+  tour-service:
+    image: ${CONTAINER_REGISTRY:-ghcr.io}/${CONTAINER_IMAGE_OWNER:-trinhxuanhuan}/journeyai-tour-service:${RELEASE_VERSION:?RELEASE_VERSION is required}
+
+  booking-service:
+    image: ${CONTAINER_REGISTRY:-ghcr.io}/${CONTAINER_IMAGE_OWNER:-trinhxuanhuan}/journeyai-booking-service:${RELEASE_VERSION:?RELEASE_VERSION is required}
+
+  payment-service:
+    image: ${CONTAINER_REGISTRY:-ghcr.io}/${CONTAINER_IMAGE_OWNER:-trinhxuanhuan}/journeyai-payment-service:${RELEASE_VERSION:?RELEASE_VERSION is required}
+
+  api-gateway:
+    image: ${CONTAINER_REGISTRY:-ghcr.io}/${CONTAINER_IMAGE_OWNER:-trinhxuanhuan}/journeyai-api-gateway:${RELEASE_VERSION:?RELEASE_VERSION is required}
+
+  ai-service:
+    image: ${CONTAINER_REGISTRY:-ghcr.io}/${CONTAINER_IMAGE_OWNER:-trinhxuanhuan}/journeyai-ai-service:${RELEASE_VERSION:?RELEASE_VERSION is required}
