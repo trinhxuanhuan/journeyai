@@ -29,6 +29,7 @@ import static org.mockito.Mockito.when;
 class GatewayCorsIntegrationTest {
 
     private static final String ALLOWED_ORIGIN = "http://localhost:3000";
+    private static final String ALTERNATE_LOCAL_ORIGIN = "http://127.0.0.1:3000";
     private static final String DISALLOWED_ORIGIN = "https://untrusted.example";
 
     @LocalServerPort
@@ -92,6 +93,20 @@ class GatewayCorsIntegrationTest {
                 .exchange()
                 .expectStatus().isEqualTo(HttpStatus.FORBIDDEN)
                 .expectHeader().doesNotExist(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN);
+    }
+
+    @Test
+    void alternateLocalOrigin_preflightIsAllowed() {
+        webTestClient.options()
+                .uri("/v1/tours")
+                .header(HttpHeaders.ORIGIN, ALTERNATE_LOCAL_ORIGIN)
+                .header(HttpHeaders.ACCESS_CONTROL_REQUEST_METHOD, HttpMethod.GET.name())
+                .exchange()
+                .expectStatus().isOk()
+                .expectHeader().valueEquals(
+                        HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN,
+                        ALTERNATE_LOCAL_ORIGIN
+                );
     }
 
     @Test

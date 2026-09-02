@@ -70,6 +70,8 @@ Smoke test xuyên service sau khi Docker stack đã chạy:
 `smoke-be-mvp.ps1` tạo dữ liệu có prefix `[SMOKE ...]`, kiểm tra GROUP/PRIVATE, Departure capacity, pricing snapshot, idempotency, Notification qua Kafka, Payment `INITIATED` và AI itinerary sharing. Mặc định script xóa Tour, reindex Elasticsearch và vô hiệu hóa HDV vừa tạo; các Booking/Payment/Notification/AI snapshot tổng hợp vẫn được giữ để kiểm tra tính bất biến và audit. Không script nào thực hiện giao dịch hoặc refund thật.
 
 Quy trình kiểm định đầy đủ trước khi phát hành: [docs/RELEASE_CANDIDATE_RUNBOOK.md](docs/RELEASE_CANDIDATE_RUNBOOK.md).
+Hướng dẫn dựng môi trường công khai an toàn: [docs/STAGING_DEPLOYMENT.md](docs/STAGING_DEPLOYMENT.md).
+Checklist E2E và nội dung portfolio: [docs/PORTFOLIO_RELEASE.md](docs/PORTFOLIO_RELEASE.md).
 
 ## Catalog tour đã kiểm chứng
 
