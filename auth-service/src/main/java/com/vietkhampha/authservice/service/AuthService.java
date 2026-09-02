@@ -4,6 +4,7 @@ import com.vietkhampha.authservice.dto.*;
 import com.vietkhampha.authservice.entity.OtpVerification;
 import com.vietkhampha.authservice.entity.RefreshToken;
 import com.vietkhampha.authservice.entity.User;
+import com.vietkhampha.authservice.exception.AccountVerificationRequiredException;
 import com.vietkhampha.authservice.exception.BusinessException;
 import com.vietkhampha.authservice.exception.ErrorCode;
 import com.vietkhampha.authservice.repository.OtpVerificationRepository;
@@ -26,6 +27,9 @@ public class AuthService {
     private static final int OTP_LENGTH = 6;
     private static final long OTP_TTL_MINUTES = 5;
     private static final int MAX_OTP_ATTEMPTS = 5;
+    private static final Duration OTP_RESEND_COOLDOWN = Duration.ofSeconds(60);
+    private static final Duration OTP_SEND_WINDOW = Duration.ofHours(1);
+    private static final int MAX_OTP_SENDS_PER_WINDOW = 5;
     private static final long REFRESH_TOKEN_TTL_DAYS = 30;
 
     // UC-A02 nhánh 3: sai mật khẩu quá 5 lần liên tiếp -> khóa tạm 15 phút.
@@ -77,13 +81,22 @@ public class AuthService {
         User user = new User(request.getEmail(), hashedPassword, request.getFullName());
         User savedUser = userRepository.save(user);
 
-        Instant otpExpiresAt = createAndSendOtp(savedUser);
+        OtpDeliveryWindow otpWindow = createAndSendOtp(savedUser);
 
-        return new RegisterResponse(savedUser.getId(), savedUser.getStatus().name(), otpExpiresAt);
+        return new RegisterResponse(
+                savedUser.getId(),
+                savedUser.getStatus().name(),
+                otpWindow.expiresAt(),
+                otpWindow.resendAvailableAt()
+        );
     }
 
     @Transactional
     public AuthTokenResponse verifyOtp(VerifyOtpRequest request) {
+        User user = userRepository.findByIdForUpdate(request.getUserId())
+                .filter(candidate -> candidate.getStatus() == User.Status.UNVERIFIED)
+                .orElseThrow(() -> new BusinessException(ErrorCode.OTP_INVALID));
+
         OtpVerification otp = otpVerificationRepository
                 .findFirstByUserIdOrderByCreatedAtDesc(request.getUserId())
                 .orElseThrow(() -> new BusinessException(ErrorCode.OTP_INVALID));
@@ -110,8 +123,6 @@ public class AuthService {
         otp.markAsUsed();
         otpVerificationRepository.save(otp);
 
-        User user = userRepository.findById(request.getUserId())
-                .orElseThrow(() -> new NoSuchElementException("User khong ton tai"));
         user.setStatus(User.Status.ACTIVE);
         userRepository.save(user);
         authEventPublisher.publishUserRegistered(user.getId(), user.getEmail(), user.getFullName());
@@ -132,10 +143,6 @@ public class AuthService {
             throw new BusinessException(ErrorCode.ACCOUNT_SUSPENDED);
         }
 
-        if (user.getStatus() == User.Status.UNVERIFIED) {
-            throw new BusinessException(ErrorCode.ACCOUNT_UNVERIFIED);
-        }
-
         // passwordHash có thể null nếu tài khoản chỉ đăng nhập qua Google (UC-A02
         // trường hợp b, chưa triển khai ở task này) — không thể xác thực bằng
         // mật khẩu trong trường hợp đó.
@@ -148,7 +155,28 @@ public class AuthService {
         }
 
         clearFailedAttempts(user.getId());
+
+        if (user.getStatus() == User.Status.UNVERIFIED) {
+            OtpDeliveryWindow otpWindow = currentOtpWindow(user.getId());
+            throw new AccountVerificationRequiredException(
+                    user.getId(),
+                    user.getEmail(),
+                    otpWindow.expiresAt(),
+                    otpWindow.resendAvailableAt()
+            );
+        }
+
         return issueTokens(user);
+    }
+
+    @Transactional
+    public ResendOtpResponse resendOtp(ResendOtpRequest request) {
+        User user = userRepository.findByIdForUpdate(request.getUserId())
+                .filter(candidate -> candidate.getStatus() == User.Status.UNVERIFIED)
+                .orElseThrow(() -> new BusinessException(ErrorCode.OTP_RESEND_NOT_ALLOWED));
+
+        OtpDeliveryWindow otpWindow = createAndSendOtp(user);
+        return new ResendOtpResponse(otpWindow.expiresAt(), otpWindow.resendAvailableAt());
     }
 
     @Transactional(readOnly = true)
@@ -215,17 +243,69 @@ public class AuthService {
         return new AuthTokenResponse(accessToken, refreshTokenValue, jwtService.getAccessTokenTtlSeconds());
     }
 
-    Instant createAndSendOtp(User user) {
+    OtpDeliveryWindow createAndSendOtp(User user) {
+        reserveOtpDelivery(user.getId());
+
+        var unusedOtps = otpVerificationRepository.findAllByUserIdAndUsedFalse(user.getId());
+        unusedOtps.forEach(OtpVerification::markAsUsed);
+        if (!unusedOtps.isEmpty()) {
+            otpVerificationRepository.saveAll(unusedOtps);
+        }
+
         String otpCode = generateOtpCode();
         String otpCodeHash = passwordEncoder.encode(otpCode);
-        Instant expiresAt = Instant.now().plus(OTP_TTL_MINUTES, ChronoUnit.MINUTES);
+        Instant issuedAt = Instant.now();
+        Instant expiresAt = issuedAt.plus(OTP_TTL_MINUTES, ChronoUnit.MINUTES);
 
         OtpVerification otp = new OtpVerification(user.getId(), otpCodeHash, expiresAt);
         otpVerificationRepository.save(otp);
 
         emailService.sendOtpEmail(user.getEmail(), otpCode);
 
-        return expiresAt;
+        return new OtpDeliveryWindow(expiresAt, issuedAt.plus(OTP_RESEND_COOLDOWN));
+    }
+
+    private void reserveOtpDelivery(java.util.UUID userId) {
+        Boolean acquired = redisTemplate.opsForValue().setIfAbsent(
+                otpResendCooldownKey(userId),
+                "1",
+                OTP_RESEND_COOLDOWN
+        );
+        if (!Boolean.TRUE.equals(acquired)) {
+            throw new BusinessException(ErrorCode.OTP_RESEND_COOLDOWN);
+        }
+
+        String sendWindowKey = otpSendWindowKey(userId);
+        Long sendCount = redisTemplate.opsForValue().increment(sendWindowKey);
+        if (sendCount != null && sendCount == 1L) {
+            redisTemplate.expire(sendWindowKey, OTP_SEND_WINDOW);
+        }
+        if (sendCount == null || sendCount > MAX_OTP_SENDS_PER_WINDOW) {
+            throw new BusinessException(ErrorCode.OTP_SEND_LIMIT_EXCEEDED);
+        }
+    }
+
+    private OtpDeliveryWindow currentOtpWindow(java.util.UUID userId) {
+        return otpVerificationRepository.findFirstByUserIdOrderByCreatedAtDesc(userId)
+                .map(otp -> new OtpDeliveryWindow(
+                        otp.getExpiresAt(),
+                        otp.getCreatedAt().plus(OTP_RESEND_COOLDOWN)
+                ))
+                .orElseGet(() -> {
+                    Instant now = Instant.now();
+                    return new OtpDeliveryWindow(now, now);
+                });
+    }
+
+    private String otpResendCooldownKey(java.util.UUID userId) {
+        return "otp:resend:cooldown:" + userId;
+    }
+
+    private String otpSendWindowKey(java.util.UUID userId) {
+        return "otp:send:window:" + userId;
+    }
+
+    record OtpDeliveryWindow(Instant expiresAt, Instant resendAvailableAt) {
     }
 
     private String generateOtpCode() {
