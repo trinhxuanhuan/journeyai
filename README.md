@@ -54,15 +54,22 @@ AI service:
 
 ```powershell
 python -m pytest ai-service/tests
+# Hoặc khi máy chưa có Python/pytest nhưng Docker stack đang chạy:
+docker compose exec -T ai-service python -m pytest tests
 ```
 
 Smoke test xuyên service sau khi Docker stack đã chạy:
 
 ```powershell
+./scripts/smoke-auth-account.ps1
 ./scripts/smoke-be-mvp.ps1
 ```
 
-Smoke test tạo dữ liệu có prefix `[SMOKE ...]`, kiểm tra GROUP/PRIVATE, Departure capacity, pricing snapshot, idempotency, Notification qua Kafka, Payment `INITIATED` và AI itinerary sharing. Script không thực hiện giao dịch hoặc refund thật.
+`smoke-auth-account.ps1` kiểm tra đăng ký, OTP, Kafka profile, cập nhật tài khoản, refresh-token rotation và thu hồi phiên sau logout bằng token thật. Script chỉ tự đọc OTP từ log container local khi `EMAIL_ENABLED=false`; tài khoản tổng hợp `@example.invalid` được giữ lại để không cần tạo endpoint xóa người dùng nguy hiểm.
+
+`smoke-be-mvp.ps1` tạo dữ liệu có prefix `[SMOKE ...]`, kiểm tra GROUP/PRIVATE, Departure capacity, pricing snapshot, idempotency, Notification qua Kafka, Payment `INITIATED` và AI itinerary sharing. Mặc định script xóa Tour, reindex Elasticsearch và vô hiệu hóa HDV vừa tạo; các Booking/Payment/Notification/AI snapshot tổng hợp vẫn được giữ để kiểm tra tính bất biến và audit. Không script nào thực hiện giao dịch hoặc refund thật.
+
+Quy trình kiểm định đầy đủ trước khi phát hành: [docs/RELEASE_CANDIDATE_RUNBOOK.md](docs/RELEASE_CANDIDATE_RUNBOOK.md).
 
 ## Catalog tour đã kiểm chứng
 

@@ -2,6 +2,7 @@
 param(
     [string]$BaseUrl = "http://localhost:8090",
     [string]$JwtSecret = $env:JWT_SIGNING_SECRET,
+    [ValidateRange(5, 600)][int]$ReadinessTimeoutSeconds = 120,
     [switch]$KeepTestData
 )
 
@@ -118,13 +119,17 @@ function Invoke-MvpApi {
             Content    = $utf8Content
         }
     }
+    $responseContent = $response.Content
+    if ($responseContent -is [byte[]]) {
+        $responseContent = [Text.Encoding]::UTF8.GetString($responseContent)
+    }
     if ($ExpectedStatus -notcontains [int]$response.StatusCode) {
-        throw "$Method $Path expected HTTP $($ExpectedStatus -join '/') but received $($response.StatusCode). Body: $($response.Content)"
+        throw "$Method $Path expected HTTP $($ExpectedStatus -join '/') but received $($response.StatusCode). Body: $responseContent"
     }
 
     $parsedBody = $null
-    if (-not [string]::IsNullOrWhiteSpace($response.Content)) {
-        $parsedBody = $response.Content | ConvertFrom-Json
+    if (-not [string]::IsNullOrWhiteSpace($responseContent)) {
+        $parsedBody = $responseContent | ConvertFrom-Json
     }
     return [pscustomobject]@{
         StatusCode = [int]$response.StatusCode
@@ -141,6 +146,41 @@ function Assert-Equal {
 
     if ($Actual -ne $Expected) {
         throw "$Message. Expected '$Expected', received '$Actual'."
+    }
+}
+
+function Wait-ForMvpReadiness {
+    param([int]$TimeoutSeconds)
+
+    $checks = @(
+        @{ Name = "API Gateway"; Path = "/actuator/health" },
+        @{ Name = "AI service through Gateway"; Path = "/v1/ai/ping" }
+    )
+
+    foreach ($check in $checks) {
+        $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
+        $lastError = "chưa nhận được phản hồi"
+
+        do {
+            try {
+                $response = Invoke-MvpApi -Method GET -Path $check.Path -ExpectedStatus 200
+                if ($response.Body.status -eq "UP") {
+                    Write-Host "READY $($check.Name)"
+                    $lastError = $null
+                    break
+                }
+                $lastError = "trạng thái '$($response.Body.status)'"
+            }
+            catch {
+                $lastError = $_.Exception.Message
+            }
+
+            Start-Sleep -Seconds 2
+        } while ((Get-Date) -lt $deadline)
+
+        if ($null -ne $lastError) {
+            throw "$($check.Name) chưa sẵn sàng sau $TimeoutSeconds giây. Phản hồi cuối: $lastError"
+        }
     }
 }
 
@@ -188,13 +228,13 @@ $adminHeaders = @{ Authorization = "Bearer $(New-SmokeJwt -Subject $adminId -Rol
 $customerHeaders = @{ Authorization = "Bearer $(New-SmokeJwt -Subject $customerId -Role CUSTOMER -Secret $JwtSecret)" }
 $secondCustomerHeaders = @{ Authorization = "Bearer $(New-SmokeJwt -Subject $secondCustomerId -Role CUSTOMER -Secret $JwtSecret)" }
 $createdTourIds = [System.Collections.Generic.List[string]]::new()
+$createdGuideId = $null
 $smokeResult = $null
 $testPassed = $false
 
 try {
-Write-Host "[1/10] Checking gateway and AI health"
-$health = Invoke-MvpApi -Method GET -Path "/v1/ai/ping" -ExpectedStatus 200
-Assert-Equal $health.Body.status "UP" "AI service is not healthy"
+Write-Host "[1/10] Waiting for gateway and AI readiness"
+Wait-ForMvpReadiness -TimeoutSeconds $ReadinessTimeoutSeconds
 
 Write-Host "[2/10] Creating an active tour guide"
 $guide = Invoke-MvpApi -Method POST -Path "/v1/admin/tour-guides" -Headers $adminHeaders -ExpectedStatus 201 -Body @{
@@ -203,6 +243,7 @@ $guide = Invoke-MvpApi -Method POST -Path "/v1/admin/tour-guides" -Headers $admi
     yearsOfExperience = 8
 }
 $guideId = $guide.Body.id
+$createdGuideId = $guideId
 
 $commonPackage = @{
     accommodation = @("Khách sạn tiêu chuẩn 3 sao, phòng đôi")
@@ -448,12 +489,13 @@ $smokeResult = [pscustomobject]@{
     PrivateBookingId = $privateBooking.Body.bookingId
     PaymentId        = $payment.Body.paymentId
     AiItineraryId    = $ai.Body.id
-    TestDataRetained = [bool]$KeepTestData
+    ActiveTourDataRetained = [bool]$KeepTestData
+    SnapshotRecordsCreated = $true
 }
 $testPassed = $true
 }
 finally {
-    if (-not $KeepTestData -and $createdTourIds.Count -gt 0) {
+    if (-not $KeepTestData -and ($createdTourIds.Count -gt 0 -or $null -ne $createdGuideId)) {
         $cleanupErrors = [System.Collections.Generic.List[string]]::new()
         for ($index = $createdTourIds.Count - 1; $index -ge 0; $index--) {
             $tourId = $createdTourIds[$index]
@@ -472,6 +514,16 @@ finally {
         }
         catch {
             [void]$cleanupErrors.Add("reindex: $($_.Exception.Message)")
+        }
+
+        if ($null -ne $createdGuideId) {
+            try {
+                Invoke-MvpApi -Method DELETE -Path "/v1/admin/tour-guides/$createdGuideId" -Headers $adminHeaders -ExpectedStatus 204 | Out-Null
+                Write-Host "DEACTIVATED tour guide $createdGuideId"
+            }
+            catch {
+                [void]$cleanupErrors.Add("tour guide $createdGuideId`: $($_.Exception.Message)")
+            }
         }
 
         if ($cleanupErrors.Count -gt 0) {

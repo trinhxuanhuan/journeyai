@@ -1,6 +1,7 @@
 package com.vietkhampha.apigateway;
 
 import com.vietkhampha.apigateway.security.JwtValidator;
+import com.vietkhampha.apigateway.security.TokenRevocationChecker;
 import io.jsonwebtoken.Claims;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -14,11 +15,13 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.test.web.reactive.server.WebTestClient;
+import reactor.core.publisher.Mono;
 
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Stream;
 
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -36,8 +39,12 @@ class GatewayCorsIntegrationTest {
     @MockBean
     private JwtValidator jwtValidator;
 
+    @MockBean
+    private TokenRevocationChecker tokenRevocationChecker;
+
     @BeforeEach
     void setUpWebTestClient() {
+        when(tokenRevocationChecker.isRevoked(anyString())).thenReturn(Mono.just(false));
         webTestClient = WebTestClient.bindToServer()
                 .baseUrl("http://localhost:" + port)
                 .build();
