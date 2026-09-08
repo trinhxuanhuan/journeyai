@@ -1,8 +1,59 @@
-# Việt Khám Phá
+# JourneyAI — Việt Khám Phá Backend
 
-Backend cho nền tảng đặt Tour Việt Nam và gợi ý hành trình tự túc bằng AI. MVP tập trung vào Tour ghép trọn gói, Tour riêng có giá xác định trước và AI itinerary độc lập; không xây inventory khách sạn, vé máy bay hay vé tham quan kiểu OTA.
+A production-minded microservices backend for Vietnam tour booking, payment, notification, and AI-assisted itinerary planning.
+
+Việt Khám Phá tập trung vào Tour ghép trọn gói, Tour riêng có giá xác định trước và hành trình tự túc bằng AI. Khách sạn, xe, bữa ăn, vé tham quan và bảo hiểm là thành phần của package Tour; hệ thống không xây inventory kiểu OTA.
 
 [![CI](https://github.com/trinhxuanhuan/journeyai/actions/workflows/ci.yml/badge.svg)](https://github.com/trinhxuanhuan/journeyai/actions/workflows/ci.yml)
+
+**Repositories:** Backend (repository này) · [Frontend](https://github.com/trinhxuanhuan/journeyai-frontend)
+
+**Status:** MVP release candidate với CI tự động, Docker release images và smoke workflow xuyên service.
+
+## Engineering highlights
+
+- **Concurrency-safe group booking:** capacity thuộc từng Departure, giữ chỗ 15 phút và tự động hoàn chỗ khi booking hết hạn hoặc bị hủy.
+- **Stable commercial history:** giá, package và chính sách hoàn/hủy được snapshot tại thời điểm đặt để thay đổi Tour sau này không làm sai booking cũ.
+- **Reliable distributed workflows:** idempotency key cho các thao tác nhạy cảm, transactional outbox cho domain events và inbox/deduplication ở consumer Kafka.
+- **Payment integrity:** kiểm tra callback VNPay, bảo vệ trước callback lặp/đồng thời, xử lý thanh toán đến muộn và refund idempotency.
+- **Secure account lifecycle:** xác thực OTP, JWT access/refresh token, refresh-token rotation và thu hồi phiên đăng nhập.
+- **Independent AI planning:** miền itinerary tách khỏi Tour/Booking, hỗ trợ tạo, lưu, tinh chỉnh, dự toán và chia sẻ công khai an toàn.
+
+## Kiến trúc hệ thống
+
+```mermaid
+flowchart LR
+  FE[Next.js frontend] --> Gateway[Spring Cloud API Gateway]
+
+  Gateway --> Auth[Auth service]
+  Gateway --> User[User service]
+  Gateway --> Tour[Tour service]
+  Gateway --> Booking[Booking service]
+  Gateway --> Payment[Payment service]
+  Gateway --> Notification[Notification service]
+  Gateway --> AI[AI itinerary service]
+
+  Booking -->|reserve or release Departure seats| Tour
+
+  Auth -. domain events .-> Kafka[(Kafka)]
+  Booking -. transactional outbox .-> Kafka
+  Payment -. transactional outbox .-> Kafka
+  Kafka -. idempotent consumers .-> User
+  Kafka -. idempotent consumers .-> Booking
+  Kafka -. idempotent inbox .-> Notification
+
+  Auth --> PostgreSQL[(PostgreSQL)]
+  User --> PostgreSQL
+  Booking --> PostgreSQL
+  Payment --> PostgreSQL
+  Notification --> PostgreSQL
+  Tour --> MongoDB[(MongoDB)]
+  AI --> MongoDB
+  Tour --> Elasticsearch[(Elasticsearch)]
+  Tour --> Redis[(Redis)]
+```
+
+Frontend và backend là hai repository độc lập, giao tiếp qua contract `/v1/**` tại API Gateway. Giao tiếp đồng bộ giữa các service chỉ được dùng khi cần phản hồi tức thời; các sự kiện nghiệp vụ bền vững đi qua Kafka.
 
 ## Miền nghiệp vụ MVP
 
@@ -12,9 +63,7 @@ Backend cho nền tảng đặt Tour Việt Nam và gợi ý hành trình tự t
 - Notification: service độc lập nhận sự kiện Auth/Booking/Payment qua Kafka, cung cấp hộp thư trong ứng dụng, tùy chọn email và nhắc khởi hành.
 - Các thành phần khách sạn, phòng, xe, bữa ăn, vé và bảo hiểm được lưu trong package Tour.
 
-Contract chi tiết: [docs/MVP_API_CONTRACT.md](docs/MVP_API_CONTRACT.md). Thiết kế và quality gates
-của AI: [docs/AI_PLANNER_V1.md](docs/AI_PLANNER_V1.md). Thứ tự hoàn thiện FE/Notification:
-[docs/DELIVERY_ROADMAP.md](docs/DELIVERY_ROADMAP.md).
+API contract chi tiết: [docs/MVP_API_CONTRACT.md](docs/MVP_API_CONTRACT.md).
 
 ## Công nghệ và service
 
@@ -71,10 +120,18 @@ Smoke test xuyên service sau khi Docker stack đã chạy:
 
 `smoke-be-mvp.ps1` tạo dữ liệu có prefix `[SMOKE ...]`, kiểm tra GROUP/PRIVATE, Departure capacity, pricing snapshot, idempotency, Notification qua Kafka, Payment `INITIATED` và AI itinerary sharing. Mặc định script xóa Tour, reindex Elasticsearch và vô hiệu hóa HDV vừa tạo; các Booking/Payment/Notification/AI snapshot tổng hợp vẫn được giữ để kiểm tra tính bất biến và audit. Không script nào thực hiện giao dịch hoặc refund thật.
 
-Quy trình kiểm định đầy đủ trước khi phát hành: [docs/RELEASE_CANDIDATE_RUNBOOK.md](docs/RELEASE_CANDIDATE_RUNBOOK.md).
-Hướng dẫn dựng môi trường công khai an toàn: [docs/STAGING_DEPLOYMENT.md](docs/STAGING_DEPLOYMENT.md).
-Checklist E2E và nội dung portfolio: [docs/PORTFOLIO_RELEASE.md](docs/PORTFOLIO_RELEASE.md).
-Release image bất biến và ghi chú phát hành: [docs/FINAL_RELEASE.md](docs/FINAL_RELEASE.md).
+## Tài liệu kỹ thuật
+
+| Tài liệu | Nội dung |
+| --- | --- |
+| [MVP API contract](docs/MVP_API_CONTRACT.md) | Contract và quy tắc nghiệp vụ xuyên service |
+| [AI Planner V1](docs/AI_PLANNER_V1.md) | Thiết kế grounded planner và quality gates |
+| [Delivery roadmap](docs/DELIVERY_ROADMAP.md) | Phạm vi và thứ tự hoàn thiện sản phẩm |
+| [Legacy DB migration](docs/LEGACY_DB_MIGRATION.md) | Preflight và chuyển database cũ sang Flyway |
+| [Release candidate runbook](docs/RELEASE_CANDIDATE_RUNBOOK.md) | Quy trình kiểm định đầy đủ trước phát hành |
+| [Staging deployment](docs/STAGING_DEPLOYMENT.md) | Dựng môi trường công khai an toàn |
+| [Portfolio release](docs/PORTFOLIO_RELEASE.md) | Checklist E2E và bằng chứng sản phẩm |
+| [Final release](docs/FINAL_RELEASE.md) | Docker image bất biến và ghi chú phát hành |
 
 ## Catalog tour đã kiểm chứng
 
