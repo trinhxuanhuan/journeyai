@@ -2,24 +2,24 @@
 
 A production-minded microservices backend for Vietnam tour booking, payment, notification, and AI-assisted itinerary planning.
 
-Việt Khám Phá tập trung vào Tour ghép trọn gói, Tour riêng có giá xác định trước và hành trình tự túc bằng AI. Khách sạn, xe, bữa ăn, vé tham quan và bảo hiểm là thành phần của package Tour; hệ thống không xây inventory kiểu OTA.
+Việt Khám Phá focuses on scheduled group tours, fixed-price private tours, and independent AI-assisted itineraries. Hotels, transportation, meals, attraction tickets, and insurance are modeled as tour-package components rather than standalone OTA inventory.
 
 [![CI](https://github.com/trinhxuanhuan/journeyai/actions/workflows/ci.yml/badge.svg)](https://github.com/trinhxuanhuan/journeyai/actions/workflows/ci.yml)
 
-**Repositories:** Backend (repository này) · [Frontend](https://github.com/trinhxuanhuan/journeyai-frontend)
+**Repositories:** Backend (this repository) · [Frontend](https://github.com/trinhxuanhuan/journeyai-frontend)
 
-**Status:** MVP release candidate với CI tự động, Docker release images và smoke workflow xuyên service.
+**Status:** MVP release candidate with automated CI, Docker release images, and cross-service smoke workflows.
 
 ## Engineering highlights
 
-- **Concurrency-safe group booking:** capacity thuộc từng Departure, giữ chỗ 15 phút và tự động hoàn chỗ khi booking hết hạn hoặc bị hủy.
-- **Stable commercial history:** giá, package và chính sách hoàn/hủy được snapshot tại thời điểm đặt để thay đổi Tour sau này không làm sai booking cũ.
-- **Reliable distributed workflows:** idempotency key cho các thao tác nhạy cảm, transactional outbox cho domain events và inbox/deduplication ở consumer Kafka.
-- **Payment integrity:** kiểm tra callback VNPay, bảo vệ trước callback lặp/đồng thời, xử lý thanh toán đến muộn và refund idempotency.
-- **Secure account lifecycle:** xác thực OTP, JWT access/refresh token, refresh-token rotation và thu hồi phiên đăng nhập.
-- **Independent AI planning:** miền itinerary tách khỏi Tour/Booking, hỗ trợ tạo, lưu, tinh chỉnh, dự toán và chia sẻ công khai an toàn.
+- **Concurrency-safe group booking:** capacity belongs to each `Departure`, with a 15-minute hold and automatic seat release when a booking expires or is cancelled.
+- **Stable commercial history:** prices, package details, and cancellation policies are snapshotted at booking time so later tour changes cannot alter historical bookings.
+- **Reliable distributed workflows:** idempotency keys protect sensitive operations, transactional outboxes publish domain events, and Kafka consumers use inbox/deduplication safeguards.
+- **Payment integrity:** VNPay callbacks are verified and protected against duplicate or concurrent delivery, with late-payment reconciliation and idempotent refunds.
+- **Secure account lifecycle:** OTP verification, JWT access/refresh tokens, refresh-token rotation, and session revocation.
+- **Independent AI planning:** itinerary generation is separated from the tour-booking domain and supports creation, persistence, refinement, budgeting, and safe public sharing.
 
-## Kiến trúc hệ thống
+## System architecture
 
 ```mermaid
 flowchart LR
@@ -53,47 +53,47 @@ flowchart LR
   Tour --> Redis[(Redis)]
 ```
 
-Frontend và backend là hai repository độc lập, giao tiếp qua contract `/v1/**` tại API Gateway. Giao tiếp đồng bộ giữa các service chỉ được dùng khi cần phản hồi tức thời; các sự kiện nghiệp vụ bền vững đi qua Kafka.
+The frontend and backend are maintained in separate repositories and communicate through the `/v1/**` contract at the API Gateway. Synchronous service calls are reserved for immediate responses, while durable business events are delivered through Kafka.
 
-## Miền nghiệp vụ MVP
+## MVP business domains
 
-- Tour ghép: `Tour -> Departure -> Booking -> Participants -> Payment`; capacity và HDV cụ thể thuộc từng Departure.
-- Tour riêng: một Booking là một đoàn riêng, giá `PER_PERSON` hoặc `PER_GROUP`, không dùng shared capacity; HDV có thể included/optional/none.
-- AI itinerary: planner grounded tạo/lưu/chỉnh sửa/chia sẻ lịch trình, kiểm tra lịch và dự toán; không phụ thuộc Tour/Booking.
-- Notification: service độc lập nhận sự kiện Auth/Booking/Payment qua Kafka, cung cấp hộp thư trong ứng dụng, tùy chọn email và nhắc khởi hành.
-- Các thành phần khách sạn, phòng, xe, bữa ăn, vé và bảo hiểm được lưu trong package Tour.
+- **Group tours:** `Tour -> Departure -> Booking -> Participants -> Payment`. Multiple bookings share one departure; capacity and the assigned guide belong to that departure.
+- **Private tours:** one booking represents one private group, priced `PER_PERSON` or `PER_GROUP` without shared capacity; guide mode can be `INCLUDED`, `OPTIONAL`, or `NONE`.
+- **AI itineraries:** a grounded planner creates, stores, refines, validates, budgets, and shares itineraries independently from `Tour` and `Booking`.
+- **Notifications:** an independent service consumes Auth, Booking, and Payment events through Kafka, provides an in-app inbox, supports email preferences, and schedules departure reminders.
+- **Tour packages:** accommodation, room details, transportation, meals, tickets, and insurance are embedded package information.
 
-API contract chi tiết: [docs/MVP_API_CONTRACT.md](docs/MVP_API_CONTRACT.md).
+Detailed API contract: [docs/MVP_API_CONTRACT.md](docs/MVP_API_CONTRACT.md).
 
-## Công nghệ và service
+## Technology and services
 
-- Java 17, Spring Boot, Spring Cloud Gateway
-- FastAPI cho AI service
-- PostgreSQL cho Auth/User/Booking/Payment/Notification
-- MongoDB cho Tour và AI itinerary
+- Java 17, Spring Boot, and Spring Cloud Gateway
+- FastAPI for the AI service
+- PostgreSQL for Auth, User, Booking, Payment, and Notification
+- MongoDB for Tour and AI itinerary data
 - Redis, Elasticsearch, Kafka/outbox, Zipkin
 
-Các module hiện có: `api-gateway`, `auth-service`, `user-service`, `tour-service`, `booking-service`, `payment-service`, `notification-service`, `ai-service`.
+Modules: `api-gateway`, `auth-service`, `user-service`, `tour-service`, `booking-service`, `payment-service`, `notification-service`, and `ai-service`.
 
-## Chạy local
+## Run locally
 
 ```powershell
 Copy-Item .env.example .env
-# Cấu hình JWT_SIGNING_SECRET đủ dài và thông tin VNPay sandbox nếu cần.
+# Set a sufficiently long JWT_SIGNING_SECRET and VNPay sandbox credentials when needed.
 
 docker compose up -d --build
 docker compose ps
 ```
 
-API Gateway: `http://localhost:8090`. AI health public:
+API Gateway: `http://localhost:8090`. Public AI health endpoint:
 
 ```powershell
 Invoke-RestMethod http://localhost:8090/v1/ai/ping
 ```
 
-Nếu dùng database được tạo trước khi dự án chuyển sang Flyway, làm đúng [runbook migration legacy](docs/LEGACY_DB_MIGRATION.md); không bật baseline tự động khi chưa chạy preflight.
+For databases created before the project adopted Flyway, follow the [legacy database migration runbook](docs/LEGACY_DB_MIGRATION.md). Do not enable automatic baselining before completing the preflight checks.
 
-## Kiểm tra
+## Verification
 
 Java reactor:
 
@@ -105,37 +105,37 @@ AI service:
 
 ```powershell
 python -m pytest ai-service/tests
-# Hoặc khi máy chưa có Python/pytest nhưng Docker stack đang chạy:
+# Alternatively, run the tests inside an active Docker stack:
 docker compose exec -T ai-service python -m pytest tests
 ```
 
-Smoke test xuyên service sau khi Docker stack đã chạy:
+Cross-service smoke tests after the Docker stack is running:
 
 ```powershell
 ./scripts/smoke-auth-account.ps1
 ./scripts/smoke-be-mvp.ps1
 ```
 
-`smoke-auth-account.ps1` kiểm tra đăng ký, OTP, Kafka profile, cập nhật tài khoản, refresh-token rotation và thu hồi phiên sau logout bằng token thật. Script chỉ tự đọc OTP từ log container local khi `EMAIL_ENABLED=false`; tài khoản tổng hợp `@example.invalid` được giữ lại để không cần tạo endpoint xóa người dùng nguy hiểm.
+`smoke-auth-account.ps1` verifies registration, OTP, Kafka-driven profile creation, account updates, refresh-token rotation, and session revocation after logout using real tokens. It reads OTP values from local container logs only when `EMAIL_ENABLED=false`; synthetic `@example.invalid` accounts are retained to avoid exposing an unsafe user-deletion endpoint.
 
-`smoke-be-mvp.ps1` tạo dữ liệu có prefix `[SMOKE ...]`, kiểm tra GROUP/PRIVATE, Departure capacity, pricing snapshot, idempotency, Notification qua Kafka, Payment `INITIATED` và AI itinerary sharing. Mặc định script xóa Tour, reindex Elasticsearch và vô hiệu hóa HDV vừa tạo; các Booking/Payment/Notification/AI snapshot tổng hợp vẫn được giữ để kiểm tra tính bất biến và audit. Không script nào thực hiện giao dịch hoặc refund thật.
+`smoke-be-mvp.ps1` creates `[SMOKE ...]` data and verifies group/private tours, departure capacity, pricing snapshots, idempotency, Kafka notifications, `INITIATED` payments, and AI-itinerary sharing. By default, it removes the generated tour, reindexes Elasticsearch, and deactivates the generated guide; synthetic Booking, Payment, Notification, and AI snapshots remain available for immutability and audit checks. Neither script performs a real payment or refund.
 
-## Tài liệu kỹ thuật
+## Technical documentation
 
-| Tài liệu | Nội dung |
+| Document | Purpose |
 | --- | --- |
-| [MVP API contract](docs/MVP_API_CONTRACT.md) | Contract và quy tắc nghiệp vụ xuyên service |
-| [AI Planner V1](docs/AI_PLANNER_V1.md) | Thiết kế grounded planner và quality gates |
-| [Delivery roadmap](docs/DELIVERY_ROADMAP.md) | Phạm vi và thứ tự hoàn thiện sản phẩm |
-| [Legacy DB migration](docs/LEGACY_DB_MIGRATION.md) | Preflight và chuyển database cũ sang Flyway |
-| [Release candidate runbook](docs/RELEASE_CANDIDATE_RUNBOOK.md) | Quy trình kiểm định đầy đủ trước phát hành |
-| [Staging deployment](docs/STAGING_DEPLOYMENT.md) | Dựng môi trường công khai an toàn |
-| [Portfolio release](docs/PORTFOLIO_RELEASE.md) | Checklist E2E và bằng chứng sản phẩm |
-| [Final release](docs/FINAL_RELEASE.md) | Docker image bất biến và ghi chú phát hành |
+| [MVP API contract](docs/MVP_API_CONTRACT.md) | Cross-service contracts and business rules |
+| [AI Planner V1](docs/AI_PLANNER_V1.md) | Grounded planner design and quality gates |
+| [Delivery roadmap](docs/DELIVERY_ROADMAP.md) | Product scope and delivery sequence |
+| [Legacy DB migration](docs/LEGACY_DB_MIGRATION.md) | Preflight and migration from legacy schemas to Flyway |
+| [Release candidate runbook](docs/RELEASE_CANDIDATE_RUNBOOK.md) | Full pre-release verification procedure |
+| [Staging deployment](docs/STAGING_DEPLOYMENT.md) | Safe public-environment deployment |
+| [Portfolio release](docs/PORTFOLIO_RELEASE.md) | End-to-end checklist and product evidence |
+| [Final release](docs/FINAL_RELEASE.md) | Immutable Docker images and release notes |
 
-## Catalog tour đã kiểm chứng
+## Verified tour catalog
 
-`catalog/verified-tour-catalog.v1.json` chứa nội dung tour công khai và nguồn đối chiếu địa danh. Import tour và reindex Elasticsearch bằng tài khoản quản trị:
+`catalog/verified-tour-catalog.v1.json` contains public tour content and sources used to verify destinations. Import tours and reindex Elasticsearch with an administrator account:
 
 ```powershell
 ./scripts/import-verified-tour-catalog.ps1 `
@@ -143,7 +143,7 @@ Smoke test xuyên service sau khi Docker stack đã chạy:
   -AdminAccessToken $env:VKP_ADMIN_ACCESS_TOKEN
 ```
 
-Tour ghép chỉ nhận booking khi có Departure `OPEN`, còn chỗ và đã được phân công hướng dẫn viên. Việc công bố lịch là thao tác vận hành riêng, yêu cầu `-GuideMap` hoặc tệp JSON `-GuideMapPath` ánh xạ `guideKey` sang `guideId` đang hoạt động. Mỗi lịch đồng thời dùng một `guideKey` riêng để không vô tình phân công một HDV cho hai đoàn:
+Group tours accept bookings only when an `OPEN` departure has available seats and an assigned guide. Publishing departures is a separate operational step and requires either `-GuideMap` or a `-GuideMapPath` JSON file that maps each `guideKey` to an active `guideId`. Concurrent departures use distinct guide keys to prevent accidental double assignment:
 
 ```powershell
 ./scripts/import-verified-tour-catalog.ps1 `
@@ -153,14 +153,14 @@ Tour ghép chỉ nhận booking khi có Departure `OPEN`, còn chỗ và đã đ
   -GuideMapPath ./guide-map.local.json
 ```
 
-Importer giữ nhịp lịch đã cấu hình, bỏ qua Departure trùng ngày và tự dịch lô lịch mới tới tối thiểu 7 ngày sau thời điểm chạy. Không commit access token hoặc `guide-map.local.json` chứa dữ liệu vận hành.
+The importer preserves the configured schedule cadence, skips duplicate departure dates, and shifts new batches to start at least seven days after execution. Never commit access tokens or a `guide-map.local.json` file containing operational data.
 
-## Migration hiện tại
+## Current migrations
 
-- Booking: `V1` baseline, `V2` status, `V3` idempotency, `V4` payment inbox, `V5` Departure, `V6` GROUP/PRIVATE + commercial snapshot.
+- Booking: `V1` baseline, `V2` status, `V3` idempotency, `V4` payment inbox, `V5` Departure, `V6` group/private tours and commercial snapshots.
 - Payment: `V1` baseline, `V2` payment idempotency, `V3` refund inbox/idempotency.
-- Notification: `V1` recipient snapshot, Kafka inbox, read state, email delivery và nhắc khởi hành.
-- User: `V1` baseline hồ sơ, `V2` validation/unique constraint cho điện thoại, avatar và sở thích.
-- Tour: backfill MongoDB additive, idempotent khi startup.
+- Notification: `V1` recipient snapshot, Kafka inbox, read state, email delivery, and departure reminders.
+- User: `V1` profile baseline, `V2` phone validation/uniqueness, avatar, and travel preferences.
+- Tour: additive and idempotent MongoDB backfill at startup.
 
-Mọi migration đều giữ dữ liệu cũ và dừng sớm khi precondition không an toàn.
+All migrations preserve legacy data and fail fast when their safety preconditions are not met.
